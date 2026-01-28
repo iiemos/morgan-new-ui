@@ -1,0 +1,68 @@
+[
+  {
+    "name": "buy",
+    "type": "function",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      { "name": "usdtAmount", "type": "uint256" },
+      { "name": "minTokenOut", "type": "uint256" }
+    ],
+    "outputs": []
+  },
+   {
+    "name": "getUserInfo",
+    "type": "function",
+    "stateMutability": "view",
+    "inputs": [{ "name": "user", "type": "address" }],
+    "outputs": [
+      { "name": "limit", "type": "uint256" },
+      { "name": "bought", "type": "uint256" },
+      { "name": "remaining", "type": "uint256" }
+    ]
+  },
+  {
+    "name": "remainingLimit",
+    "type": "function",
+    "stateMutability": "view",
+    "inputs": [{ "name": "user", "type": "address" }],
+    "outputs": [{ "name": "", "type": "uint256" }]
+  },
+  {
+    "name": "buyLimit",
+    "type": "function",
+    "stateMutability": "view",
+    "inputs": [{ "name": "", "type": "address" }],
+    "outputs": [{ "name": "", "type": "uint256" }]
+  },
+  {
+    "name": "boughtAmount",
+    "type": "function",
+    "stateMutability": "view",
+    "inputs": [{ "name": "", "type": "address" }],
+    "outputs": [{ "name": "", "type": "uint256" }]
+  },
+  {
+    "name": "paused",
+    "type": "function",
+    "stateMutability": "view",
+    "inputs": [],
+    "outputs": [{ "name": "", "type": "bool" }]
+  },
+  {
+    "name": "getPath",
+    "type": "function",
+    "stateMutability": "view",
+    "inputs": [],
+    "outputs": [{ "name": "", "type": "address[]" }]
+  },
+  {
+    "name": "BuyExecuted",
+    "type": "event",
+    "inputs": [
+      { "name": "user", "type": "address", "indexed": true },
+      { "name": "usdtAmount", "type": "uint256", "indexed": false },
+      { "name": "tokenReceived", "type": "uint256", "indexed": false },
+      { "name": "timestamp", "type": "uint256", "indexed": false }
+    ]
+  }
+]

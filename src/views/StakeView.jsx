@@ -1,0 +1,555 @@
+import React, { useState, useEffect } from 'react';
+import { Icon } from '@iconify/react';
+import useStakeStore from '../stores/stakeStore';
+import { useWalletIntegration } from '../hooks/useWalletIntegration';
+import { useTranslation } from 'react-i18next';
+import { fetchGlobalStakeStats, formatWei } from '../api/index.js';
+
+function StakeView() {
+  // Initialize wallet integration
+  useWalletIntegration();
+  
+  const { t } = useTranslation();
+  const [error, setError] = useState(null);
+  const [successMessage, setSuccessMessage] = useState(null);
+  
+  // Global staking stats
+  const [globalStats, setGlobalStats] = useState({
+    currentStake: '0',
+    loading: true
+  });
+  
+  const {
+    // State
+    isConnected,
+    usdtBalance,
+    aigBalance,
+    stakeAmount,
+    selectedStakeIndex,
+    lockOptions,
+    stakeList,
+    loadingRecords,
+    sliderMin,
+    sliderMax,
+    countdown,
+    isInCooldown,
+    isStakingBusy,
+    isProcessing,
+    UnstakeLoading,
+    stakeAmountError,
+    userReinvestTaxObj,
+    reinvestTaxCountdown,
+    isReinvestTaxValid,
+    
+    // Actions
+    setStakeAmount,
+    setSelectedStakeIndex,
+    selectLockDay,
+    onStake,
+    onUnstake,
+    canUnstake,
+    calculateReward,
+    getCountdown,
+    formatTimestamp,
+    transformDay,
+    validateStakeAmount
+  } = useStakeStore();
+
+  // Load global stake stats
+  useEffect(() => {
+    let mounted = true;
+    async function loadGlobalStats() {
+      try {
+        setGlobalStats(prev => ({ ...prev, loading: true }));
+        const res = await fetchGlobalStakeStats();
+        if (mounted && res && res.success) {
+          setGlobalStats({
+            currentStake: res.current_stake || '0',
+            loading: false
+          });
+        } else {
+          setGlobalStats(prev => ({ ...prev, loading: false }));
+        }
+      } catch (e) {
+        if (mounted) setGlobalStats(prev => ({ ...prev, loading: false }));
+      }
+    }
+    loadGlobalStats();
+    return () => { mounted = false; };
+  }, []);
+
+  // Initialize timers and data
+  useEffect(() => {
+    if (isConnected) {
+      useStakeStore.getState().loadStakeData();
+    }
+    
+    // Setup timers
+    const countdownInterval = setInterval(() => {
+      useStakeStore.getState().startCountdown();
+    }, 1000);
+    
+    const reinvestTaxInterval = setInterval(() => {
+      useStakeStore.getState().updateReinvestTaxCountdown();
+    }, 1000);
+    
+    const rewardUpdateInterval = setInterval(() => {
+      // Force re-render for reward updates
+      useStakeStore.setState({});
+    }, 1000);
+    
+    return () => {
+      clearInterval(countdownInterval);
+      clearInterval(reinvestTaxInterval);
+      clearInterval(rewardUpdateInterval);
+      useStakeStore.getState().cleanup();
+    };
+  }, [isConnected]);
+
+  const handleStake = async () => {
+    try {
+      setError(null);
+      setSuccessMessage(null);
+      
+      if (validateStakeAmount()) {
+        await onStake();
+        setSuccessMessage(t('success.stakeSuccessful'));
+        
+        // Clear success message after 3 seconds
+        setTimeout(() => setSuccessMessage(null), 3000);
+      }
+    } catch (err) {
+      setError(err.message || 'Staking failed');
+      
+      // Clear error after 5 seconds
+      setTimeout(() => setError(null), 5000);
+    }
+  };
+
+  const handleUnstake = async (index) => {
+    try {
+      setError(null);
+      setSuccessMessage(null);
+      
+      await onUnstake(index);
+      setSuccessMessage(t('success.unstakeSuccessful'));
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err) {
+      setError(err.message || 'Unstaking failed');
+      
+      // Clear error after 5 seconds
+      setTimeout(() => setError(null), 5000);
+    }
+  };
+
+  return (
+    <div className="dark:bg-background-dark font-display text-white min-h-screen">
+      {/* Notifications */}
+      {error && (
+        <div className="fixed top-4 right-4 z-50 bg-red-500 text-white px-6 py-4 rounded-lg shadow-lg max-w-md animate-pulse">
+          <div className="flex items-center gap-3">
+            <Icon icon="mdi:alert-circle" className="text-xl" />
+            <div>
+              <p className="font-bold">{t('common.error')}</p>
+              <p className="text-sm">{error}</p>
+            </div>
+            <button 
+              onClick={() => setError(null)}
+              className="ml-auto hover:bg-red-600 rounded p-1"
+            >
+              <Icon icon="mdi:close" />
+            </button>
+          </div>
+        </div>
+      )}
+      
+      {successMessage && (
+        <div className="fixed top-4 right-4 z-50 bg-green-500 text-white px-6 py-4 rounded-lg shadow-lg max-w-md">
+          <div className="flex items-center gap-3">
+            <Icon icon="mdi:check-circle" className="text-xl" />
+            <div>
+              <p className="font-bold">{t('common.success')}</p>
+              <p className="text-sm">{successMessage}</p>
+            </div>
+            <button 
+              onClick={() => setSuccessMessage(null)}
+              className="ml-auto hover:bg-green-600 rounded p-1"
+            >
+              <Icon icon="mdi:close" />
+            </button>
+          </div>
+        </div>
+      )}
+      
+      <div className="flex flex-col lg:flex-row">
+        {/* Main Content Area */}
+        <main className="max-w-[1440px] mx-auto w-full px-4 md:px-10 py-10  pt-18">
+          {/* Top Balance Bar */}
+          <div className="mb-6">
+            <h3 className="text-white text-4xl font-black leading-tight tracking-[-0.033em]">{t('stake.title')}</h3>
+            <p className="text-[#a692c8] text-sm">{t('stake.subtitle')}</p>
+          </div>
+          
+          {/* Staking Pods Section */}
+          <div className="glass-panel neon-border-purple rounded-2xl px-6 lg:px-10 py-4 border-b border-[#312447] bg-background-dark/50 backdrop-blur-md mb-8">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+              <div className="flex flex-col">
+                <h2 className="text-xl font-bold tracking-tight bg-gradient-to-r from-white to-primary/60 bg-clip-text text-transparent">Morgan Staking</h2>
+              </div>
+              
+              <div className="lg:flex lg:flex-wrap grid grid-cols-2 gap-6 gap-3 lg:gap-4 -mx-6 px-6 lg:mx-0 lg:px-0">
+                <div className="flex flex-col items-center shrink-0 bg-[#1c152a] px-5 py-3 rounded-xl border border-[#312447] min-w-[140px]">
+                  <p className="text-[#a692c8] text-[10px] font-bold">USD1 BALANCE</p>
+                  <p className="text-white font-black text-3xl">${parseFloat(usdtBalance).toLocaleString()}</p>
+                </div>
+                
+                <div className="flex flex-col items-center shrink-0 bg-primary/10 px-5 py-3 rounded-xl border border-primary/30 min-w-[140px]">
+                  <p className="text-primary text-[10px] font-bold">AIG BALANCE</p>
+                  <p className="text-white font-black text-3xl">{parseFloat(aigBalance).toLocaleString()}</p>
+                </div>
+              
+                
+                <div className="hidden lg:flex flex-col items-end px-4 border-l border-[#312447] justify-center">
+                  <p className="text-[#a692c8] text-[10px] uppercase font-bold tracking-widest">{t('common.networkStatus')}</p>
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                    <span className="text-sm font-medium">{t('common.liveOnMainnet')}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          {/* Staking Duration Selection */}
+          <div className="glass-card rounded-2xl p-6 border-[#312447] mb-8">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold flex items-center gap-2">
+                <Icon icon="mdi:clock-outline" className="text-primary" />
+                {t('stake.selectLockDuration')}
+              </h3>
+              <button className="text-primary hover:text-primary/80 transition-colors">
+                <Icon icon="mdi:information-outline" className="text-2xl" />
+              </button>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-6">
+              {lockOptions.map((opt, i) => (
+                <div
+                  key={i}
+                  className={`bg-primary/10 border-primary/50 rounded-2xl p-6 cursor-pointer border transition-all ${
+                    selectedStakeIndex === i
+                      ? 'border-primary/200 bg-primary/100 neon-border-purple'
+                      : 'border-[#312447] hover:border-primary/50'
+                  }`}
+                  onClick={() => setSelectedStakeIndex(i)}
+                >
+                  <div className="flex justify-between md:items-start flex-col md:flex-row items-center mb-4">
+                    <div>
+                      <h4 className="text-2xl font-black mb-2">{opt.days}-{t('stake.dayTerm')}</h4>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[#a692c8] text-lg font-bold hidden md:block">{t('stake.estApy')}</p>
+                      <p className="text-3xl font-black text-[#0bda6f] tabular-nums">{opt.rate.toFixed(2)}%</p>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-[#a692c8]">{t('stake.dailyRate')}</span>
+                      <span className="text-white font-bold">
+                        {i== 0 ? '0.3000' : '1.5000'}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          <div className="flex flex-col lg:grid lg:grid-cols-3 gap-8 mt-8">
+            {/* Stake Form */}
+            <div className="lg:col-span-1 glass-card rounded-2xl p-6 border-[#312447]">
+              <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
+                <Icon icon="mdi:add-circle" className="text-primary" />
+                {t('stake.stakeAssets')}
+              </h3>
+              
+              <div className="space-y-6">
+                <div>
+                  <label className="text-[#a692c8] text-[10px] lg:text-lg font-bold uppercase mb-2 block">
+                    {t('stake.amountToStake')} - {sliderMin}-{sliderMax}
+                  </label>
+                  <div className="relative">
+                    <div
+                      className={`w-full bg-[#110d1a] border rounded-xl py-4 lg:py-5 px-4 text-white font-bold text-lg ${
+                        stakeAmountError ? 'border-red-500' : 'border-[#312447]'
+                      }`}
+                    >
+                      {stakeAmount}
+                    </div>
+                    <button 
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-primary font-bold text-lg bg-primary/10 px-3 py-2 rounded-lg hover:bg-primary/20 transition-colors"
+                      onClick={() => setStakeAmount(sliderMax)}
+                    >
+                      MAX
+                    </button>
+                  </div>
+                  {stakeAmountError && (
+                    <p className="text-red-500 text-lg mt-2">{stakeAmountError}</p>
+                  )}
+                </div>
+                
+                <div>
+                  <div className="flex justify-between text-lg font-bold mb-3">
+                    <span className="text-[#a692c8] uppercase">{t('stake.stakeAmount')}</span>
+                    <span className="text-primary">{stakeAmount}</span>
+                  </div>
+                  <input 
+                    className="w-full h-3 bg-[#312447] rounded-lg appearance-none cursor-pointer accent-primary"
+                    type="range"
+                    min={sliderMin}
+                    max={sliderMax}
+                    step={10}
+                    value={stakeAmount}
+                    onChange={(e) => setStakeAmount(parseInt(e.target.value))}
+                  />
+                  <div className="flex justify-between text-lg text-[#a692c8] mt-1">
+                    <span>{sliderMin}</span>
+                    <span>{sliderMax}</span>
+                  </div>
+                </div>
+                
+                <div className="p-4 bg-background-dark/50 rounded-xl border border-[#312447] text-md">
+                  <div className="flex justify-between mb-2">
+                    <span className="text-[#a692c8]">{t('stake.dailyRewards')}</span>
+                    <span className="text-white font-bold">
+                      + {(stakeAmount * (lockOptions[selectedStakeIndex].rate / 100) / lockOptions[selectedStakeIndex].days).toFixed(2)} USD1
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[#a692c8]">{t('stake.lockupPeriod')}</span>
+                    <span className="text-white font-bold">{lockOptions[selectedStakeIndex].days} Days</span>
+                  </div>
+                  <div className="flex justify-between mt-2">
+                    <span className="text-[#a692c8]">{t('stake.estTotalReturn')}</span>
+                    <span className="text-[#0bda6f] font-bold">
+                      ${(stakeAmount * (1 + lockOptions[selectedStakeIndex].rate / 100)).toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+                
+                {/* Cooldown Timer */}
+                {isInCooldown && (
+                  <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl">
+                    <div className="flex items-center gap-2 text-amber-500 text-sm">
+                      <Icon icon="mdi:clock" className="animate-pulse" />
+                      <span>{t('stake.cooldown')}: {countdown}s</span>
+                    </div>
+                  </div>
+                )}
+              {userReinvestTaxObj.amount && parseFloat(userReinvestTaxObj.amount) > 0 && isReinvestTaxValid && reinvestTaxCountdown !== '00:00:00' && (
+                  <div className="flex justify-between items-center shrink-0 bg-amber-500/10 px-5 py-3 rounded-xl border border-amber-500/30 min-w-[140px]">
+                    <p className="text-amber-500 text-[10px] font-bold">{t('stake.reinvestBonus')}</p>
+                    <p className="text-white font-black text-lg">{userReinvestTaxObj.amount}</p>
+                    <p className="text-amber-500 text-lg">{reinvestTaxCountdown}</p>
+                  </div>
+                )}
+                <button
+                  className={`w-full py-5 font-black rounded-xl transition-all uppercase tracking-widest text-sm lg:text-base ${
+                    isStakingBusy || isInCooldown || !isConnected || stakeAmountError
+                      ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                      : 'bg-primary text-white glow-primary hover:opacity-90'
+                  }`}
+                  onClick={handleStake}
+                  disabled={isStakingBusy || isInCooldown || !isConnected || !!stakeAmountError}
+                >
+                  {isProcessing ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <Icon icon="mdi:loading" className="animate-spin" />
+                      {t('stake.processing')}
+                    </span>
+                  ) : isInCooldown ? (
+                    <span>{t('stake.cooldown')} {countdown}s</span>
+                  ) : !isConnected ? (
+                    t('stake.connectWallet')
+                  ) : (
+                    t('stake.executeStake')
+                  )}
+                </button>
+              </div>
+            </div>
+            
+            {/* Active Stakes Table */}
+            <div className="lg:col-span-2 glass-card rounded-2xl border-[#312447] flex flex-col overflow-hidden">
+              <div className="p-6 border-b border-[#312447] flex justify-between items-center">
+                <h3 className="text-xl font-bold flex items-center gap-2">
+                  <Icon icon="mdi:dynamic-feed" className="text-primary" />
+                  {t('stake.myActiveStakes')}
+                </h3>
+                <span className="text-lg text-[#a692c8]">{stakeList.length} {t('stake.positions')}</span>
+              </div>
+              
+              {/* Loading Overlay */}
+              {UnstakeLoading && (
+                <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-10">
+                  <div className="flex flex-col items-center gap-3">
+                    <Icon icon="mdi:loading" className="text-4xl text-primary animate-spin" />
+                    <span className="text-white">{t('stake.processing')}</span>
+                  </div>
+                </div>
+              )}
+              
+              {/* Desktop Table */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead className="bg-white/5 text-[#a692c8] text-[10px] font-bold uppercase tracking-widest">
+                    <tr>
+                      <th className="px-6 py-4">{t('stake.time')}</th>
+                      <th className="px-6 py-4">{t('stake.amount')}</th>
+                      <th className="px-6 py-4">{t('stake.duration')}</th>
+                      <th className="px-6 py-4">{t('stake.reward')}</th>
+                      <th className="px-6 py-4 text-right">{t('stake.action')}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#312447]">
+                    {loadingRecords ? (
+                      <tr>
+                        <td colSpan="5" className="px-6 py-8 text-center">
+                          <Icon icon="mdi:loading" className="text-2xl text-primary animate-spin mx-auto mb-2" />
+                          <p className="text-[#a692c8]">{t('stake.loadingRecords')}</p>
+                        </td>
+                      </tr>
+                    ) : stakeList.length === 0 ? (
+                      <tr>
+                        <td colSpan="5" className="px-6 py-8 text-center">
+                          <Icon icon="mdi:inbox-outline" className="text-2xl text-[#a692c8] mx-auto mb-2" />
+                          <p className="text-[#a692c8]">{t('stake.noStakingRecords')}</p>
+                        </td>
+                      </tr>
+                    ) : (
+                      stakeList.map((record, index) => (
+                        <tr key={index} className="hover:bg-white/5 transition-colors">
+                          <td className="px-6 py-5">
+                            <span className="text-sm">{formatTimestamp(record.oriStakeTime)}</span>
+                          </td>
+                          <td className="px-6 py-5 font-bold text-sm">${record.amount}</td>
+                          <td className="px-6 py-5">
+                            <div>
+                              <span className="text-sm font-bold">({transformDay(record.stakeIndex)})</span>
+                              {!record.status && record.canEndData && getCountdown(record.canEndData) !== 'Completed' && (
+                                <div className="text-lg text-primary mt-1">
+                                  {getCountdown(record.canEndData)}
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-6 py-5">
+                            <span className="text-[#0bda6f] font-bold text-sm">
+                              ${calculateReward(record)}
+                            </span>
+                          </td>
+                          <td className="px-6 py-5 text-right">
+                            <button 
+                              className={`font-bold text-lg px-3 py-1 rounded-lg transition-all ${
+                                record.status 
+                                  ? 'bg-gray-500/20 text-gray-500 cursor-not-allowed'
+                                  : canUnstake(record)
+                                  ? 'bg-primary text-white hover:brightness-110'
+                                  : 'bg-white/5 text-white/30 cursor-not-allowed'
+                              }`}
+                              onClick={() => handleUnstake(index)}
+                              disabled={record.status || !canUnstake(record)}
+                            >
+                              {record.status ? t('stake.unstaked') : (canUnstake(record) ? t('stake.unstake') : t('stake.locked'))}
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              
+              {/* Mobile Table */}
+              <div className="md:hidden divide-y divide-[#312447]">
+                {loadingRecords ? (
+                  <div className="p-4 text-center">
+                    <Icon icon="mdi:loading" className="text-2xl text-primary animate-spin mx-auto mb-2" />
+                    <p className="text-[#a692c8]">{t('stake.loadingRecords')}</p>
+                  </div>
+                ) : stakeList.length === 0 ? (
+                  <div className="p-4 text-center">
+                    <Icon icon="mdi:inbox-outline" className="text-2xl text-[#a692c8] mx-auto mb-2" />
+                    <p className="text-[#a692c8]">{t('stake.noStakingRecords')}</p>
+                  </div>
+                ) : (
+                  stakeList.map((record, index) => (
+                    <div key={index} className="p-4 flex flex-col gap-4">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="text-xl font-bold">${record.amount}</p>
+                          <p className="text-[10px] text-[#a692c8]">{formatTimestamp(record.oriStakeTime)}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[#0bda6f] text-2xl font-bold">${calculateReward(record)}</p>
+                          <p className="text-[10px] text-[#a692c8]">({transformDay(record.stakeIndex)})</p>
+                        </div>
+                      </div>
+                      {!record.status && record.canEndData && getCountdown(record.canEndData) !== 'Completed' && (
+                        <div className="flex justify-between items-center bg-white/5 p-3 rounded-xl">
+                          <span className="text-[10px] uppercase font-bold text-[#a692c8]">{t('stake.unlockIn')}</span>
+                          <span className="text-lg text-primary font-black">{getCountdown(record.canEndData)}</span>
+                        </div>
+                      )}
+                      <button 
+                        className={`w-full py-3 text-sm font-bold rounded-xl transition-all ${
+                          record.status 
+                            ? 'bg-gray-500/20 text-gray-500 cursor-not-allowed'
+                            : canUnstake(record)
+                            ? 'bg-primary text-white hover:brightness-110'
+                            : 'bg-white/5 text-white/30 cursor-not-allowed'
+                        }`}
+                        onClick={() => handleUnstake(index)}
+                        disabled={record.status || !canUnstake(record)}
+                      >
+                        {record.status ? t('stake.unstaked') : (canUnstake(record) ? t('stake.unstake') : t('stake.locked'))}
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+          
+          {/* Stats Footer */}
+          <footer className="p-6 lg:p-10 bg-[#110d1a] border-t border-[#312447] mt-8">
+            <div className="grid grid-cols-2 lg:grid-cols-2 gap-6 lg:gap-8">
+              <div className="flex flex-col gap-1 lg:gap-2">
+                <p className="text-[#a692c8] text-[10px] lg:text-lg font-bold uppercase">{t('common.totalStakedAmount')}</p>
+                <p className="text-lg lg:text-2xl font-black text-white">
+                  {globalStats.loading ? '...' : `$${formatWei(globalStats.currentStake, 0)}`}
+                </p>
+                <div className="flex items-center gap-2 text-[#0bda6f] text-sm font-bold">
+                  <Icon icon="mdi:trending-up" className="text-sm size-6" />
+                </div>
+              </div>
+              <div className="flex flex-col gap-1 lg:gap-2">
+                <p className="text-[#a692c8] text-[10px] lg:text-lg font-bold uppercase">{t('common.annualYield360Days')}</p>
+                <p className="text-lg lg:text-2xl font-black text-white">10351.93%</p>
+                <p className="text-blue-400 text-[10px] font-medium">{t('stake.optimalNetwork')}</p>
+              </div>
+            </div>
+          </footer>
+        </main>
+      </div>
+      
+      {/* Animated Grid Background */}
+      <div className="fixed inset-0 z-0 bg-grid opacity-50 pointer-events-none"></div>
+      <div className="fixed inset-0 z-0 bg-[radial-gradient(circle_at_50%_50%,rgba(124,59,237,0.1)_0%,transparent_50%)] pointer-events-none"></div>
+    </div>
+  );
+}
+
+export default StakeView;
