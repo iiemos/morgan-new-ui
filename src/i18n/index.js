@@ -12,6 +12,18 @@ const resources = {
         connect: 'Connect Wallet',
         connecting: 'Connecting...'
       },
+      referrer: {
+        title: 'Referral Program',
+        subtitle: 'Earn extra rewards by referring friends',
+        inputReferrer: 'Enter referrer address',
+        bind: 'Bind',
+        howToPperate:'How to operate:',
+        inputReferrerTips:'Enter the address of the person you want to refer',
+        clickBind:'Click the bind button',
+        confirmBind:'Confirm the transaction in your wallet',
+        alreadyBound: 'Already bound',
+        invalidAddress: 'Invalid referrer address'
+      },
       error: {
         connectWallet: 'Please connect wallet',
         highTraffic: 'High traffic period, please try again later',
@@ -86,7 +98,7 @@ const resources = {
       stake: {
         title: 'Performance Overview',
         subtitle: 'Tracking real-time yield accrual...',
-        selectLockDuration: 'Select Lock Duration',
+        selectStakeDuration: 'Select Stake Duration',
         stakeAssets: 'Stake Assets',
         amountToStake: 'Amount to Stake (USD1)',
         dailyRate: 'Daily Rate',
@@ -141,7 +153,9 @@ const resources = {
         viewAllMembers: 'View All Members',
         loadingTeamMembers: 'Loading team members...',
         noDirectReferrals: 'No direct referrals yet',
-        connectWalletToView: 'Connect wallet to view team'
+        connectWalletToView: 'Connect wallet to view team',
+        notBound: 'You have not bound a referrer yet',
+        bindSuperior: 'Bind Superior',
       },
       mine: {
         title: 'Mine',
@@ -275,6 +289,18 @@ const resources = {
         connect: '連接錢包',
         connecting: '連接中...'
       },
+      referrer: {
+        title: '綁定推薦人',
+        subtitle: '通過邀請好友，獲得额外奖励',
+        inputReferrer: '请输入邀请人地址以完成绑定',
+        bind: '綁定',
+        howToPperate:'如何操作：',
+        inputReferrerTips:'输入邀请人的地址',
+        clickBind:'点击「绑定邀请人」按钮',
+        confirmBind:'确认钱包交易完成绑定',
+        alreadyBound: '已綁定推薦人',
+        invalidAddress: '無效的推薦人地址'
+      },
       error: {
         connectWallet: '請連接錢包',
         highTraffic: '高流量時段，請稍後再試',
@@ -301,7 +327,7 @@ const resources = {
       stake: {
         title: '我的質押',
         subtitle: '跟蹤實時收益累積...',
-        selectLockDuration: '選擇鎖定期限',
+        selectStakeDuration: '選擇質押期限',
         stakeAssets: '質押資產',
         amountToStake: '質押金額 (USD1)',
         dailyRate: '每日利率',
@@ -356,7 +382,9 @@ const resources = {
         viewAllMembers: '查看所有成員',
         loadingTeamMembers: '加載團隊成員中...',
         noDirectReferrals: '暫無直接推薦',
-        connectWalletToView: '連接錢包以查看團隊'
+        connectWalletToView: '連接錢包以查看團隊',
+        notBound: '您未綁定推薦人',
+        bindSuperior: '綁定推薦人',
       },
       mine: {
         title: '我的',
@@ -524,6 +552,18 @@ const resources = {
         connect: 'ウォレットを接続',
         connecting: '接続中...'
       },
+      referrer: {
+        title: '推薦プログラム',
+        subtitle: '友達を招待して、共同で利益を得よう',
+        inputReferrer: '紹介者のアドレスを入力してください',
+        bind: 'バインド',
+        howToPperate:'操作方法:',
+        inputReferrerTips:'紹介者のアドレスを入力してください',
+        clickBind:'バインドボタンをクリックしてください',
+        confirmBind:'ウォレットで取引を確認してください',
+        alreadyBound: '既にバインドされています',
+        invalidAddress: '無効な紹介者アドレス'
+      },
       error: {
         connectWallet: 'ウォレットを接続してください',
         highTraffic: 'トラフィックが多い期間です、後でもう一度お試しください',
@@ -565,7 +605,7 @@ const resources = {
       stake: {
         title: 'パフォーマンス概要',
         subtitle: 'リアルタイムの利回り蓄積を追跡中...',
-        selectLockDuration: 'ロック期間を選択',
+        selectStakeDuration: '質押期限を選択',
         stakeAssets: '資産をステーク',
         amountToStake: 'ステーク額（USD1）',
         dailyRate: '日間レート',
@@ -620,7 +660,9 @@ const resources = {
         viewAllMembers: 'すべてのメンバーを表示',
         loadingTeamMembers: 'チームメンバーを読み込んでいます...',
         noDirectReferrals: 'まだ直接紹介はありません',
-        connectWalletToView: 'チームを表示するにはウォレットを接続してください'
+        connectWalletToView: 'チームを表示するにはウォレットを接続してください',
+        notBound: 'まだ推薦人をバインドしていません',
+        bindSuperior: '推薦人をバインド',
       },
       mine: {
         title: 'マイニング',
@@ -782,11 +824,23 @@ const resources = {
     translation: {
       home: {
         title: '디지털 수익의 힘을 잠금 해제하세요',
-        subtitle: '안전한 기관급 블록체인 프로토콜에서 USD1 및 AIG 스테이킹의 차세대를 경험하세요. 고성능, 초안전, 탈중앙화입니다.'
+        subtitle: '안전한 기관급 블록체인 프로토콜에서 USD1 및 AIG 스테이킹의 차세대를 경험하세요. 고실적, 초안전, 탈중앙화입니다.'
       },
       wallet: {
         connect: '지갑 연결',
         connecting: '연결 중...'
+      },
+      referrer: {
+        title: '추천 프로그램',
+        subtitle: '친구를 초대하고 함께 이익을 창출하세요',
+        inputReferrer: '추천인 주소를 입력하세요',
+        bind: '바인딩',
+        howToPperate:'연동 방법:',
+        inputReferrerTips:'추천인의 주소를 입력하세요',
+        clickBind:'바인딩 버튼을 클릭하세요',
+        confirmBind:'지갑에서 거래를 확인하세요',
+        alreadyBound: '이미 바인딩된 추천인입니다',
+        invalidAddress: '유효하지 않은 추천인 주소'
       },
       error: {
         connectWallet: '지갑을 연결해 주세요',
@@ -827,11 +881,11 @@ const resources = {
         approvalSubmitted: '승인 거래가 제출되었습니다. 확인을 기다리는 중...'
       },
       stake: {
-        title: '성능 개요',
+        title: '실적 개요',
         subtitle: '실시간 수익 누적 추적 중...',
-        selectLockDuration: '잠금 기간 선택',
+        selectStakeDuration: '잠금 기간 선택',
         stakeAssets: '자산 스테이크',
-        amountToStake: '스테이크 금액（USD1）',
+        amountToStake: '자산 스테이킹（USD1）',
         dailyRate: '일일 비율',
         dailyRewards: '일일 보상',
         lockupPeriod: '잠금 기간',
@@ -854,20 +908,20 @@ const resources = {
         connectWallet: '지갑 연결',
         dayTerm: '일 기간',
         estApy: '예상 연간 수익률',
-        stakeAmount: '스테이크 금액',
+        stakeAmount: '자산 스테이킹',
         unlockIn: '잠금 해제까지',
         optimalNetwork: '최적의 네트워크',
         reinvestBonus: '재투자 보너스'
       },
       team: {
         title: '팀 관리',
-        subtitle: '블록체인 전체에서 다운라인 성능과 네트워크 확장을 모니터링합니다.',
+        subtitle: '블록체인 전체에서 다운라인 실적과 네트워크 확장을 모니터링합니다.',
         yourLevel: '귀하의 레벨',
         level: '레벨',
         members: '멤버',
         active: '활성',
         inactive: '비활성',
-        performance: '성능',
+        performance: '실적',
         team: '팀',
         valid: '유효',
         inviteNewMember: '새 멤버 초대',
@@ -879,24 +933,26 @@ const resources = {
         howItWorks: '작동 방식：',
         shareInviteLink: '친구와 귀하의 고유한 초대 링크를 공유하세요',
         whenSomeoneJoins: '누군가 귀하의 링크를 사용하여 가입하면 직접 추천인이 됩니다',
-        earnRewards: '팀의 성능에 따라 보상을 받으세요',
+        earnRewards: '팀의 실적에 따라 보상을 받으세요',
         directReferrals: '직접 추천',
         viewAllMembers: '모든 멤버 보기',
         loadingTeamMembers: '팀 멤버를 로드하는 중...',
         noDirectReferrals: '아직 직접 추천이 없습니다',
-        connectWalletToView: '팀을 보려면 지갑을 연결하세요'
+        connectWalletToView: '팀을 보려면 지갑을 연결하세요',
+        notBound: '아직 추천인을 바인드하지 않았습니다',
+        bindSuperior: '추천인 바인드',
       },
       mine: {
         title: '마이닝',
         subtitle: '모건 프로토콜에서 토큰 마이닝',
         notConnected: '연결되지 않음',
-        totalPerformance: '총 성능',
+        totalPerformance: '총 실적',
         assetBalances: '자산 잔액',
         manageAll: '전체 관리',
         communityReward: '커뮤니티 보상',
         levelReward: '레벨 보상',
         teamLevel: '팀 레벨',
-        smallAreaPerformance: '소구역 성능',
+        smallAreaPerformance: '소구역 실적',
         eligibility: '자격',
         eligible: '자격 있음',
         notEligible: '자격 없음',
@@ -963,8 +1019,8 @@ const resources = {
         networkStatus: '네트워크 상태',
         decentralizedAndSecure: '탈중앙화 및 안전',
         totalValueLocked: '총 잠긴 가치',
-        '24hNewStakes': '24시간 새 스테이크',
-        yourPerformance: '귀하의 성능',
+        '24hNewStakes': '24시간 새 스테이킹',
+        yourPerformance: '귀하의 실적',
         institutionalGradeAssets: '기관급 자산',
         viewAllPools: '모든 풀 보기',
         usd1Stablecoin: 'USD1 스테이블코인',
@@ -1000,11 +1056,11 @@ const resources = {
         totalStakedAmount: '총 스테이킹 금액',
         annualYield360Days: '360일 연간 수익률',
         teamSize: '팀 규모',
-        directPerformance: '직접 성능',
-        teamTodayNewPerformance: '팀 오늘 새 성능',
+        directPerformance: '직접 실적',
+        teamTodayNewPerformance: '팀 오늘 새 실적',
         directReferrals: '직접 추천',
-        bigAreaPerformance: '대구역 성능',
-        smallAreaPerformance: '소구역 성능',
+        bigAreaPerformance: '대구역 실적',
+        smallAreaPerformance: '소구역 실적',
         minutes: '분',
         connectWalletToView: '지갑을 연결하여 보기',
         globalStakingStats: '글로벌 스테이킹 통계',
@@ -1052,6 +1108,18 @@ const resources = {
         connect: 'Połącz portfel',
         connecting: 'Łączenie...'
       },
+      referrer: {
+        title: 'Programmable',
+        subtitle: 'Cộng tác và tạo ra tương lai với staking và giới thiệu',
+        inputReferrer: 'Nhập địa chỉ referrer',
+        bind: 'Bind',
+        howToPperate:'Cách hoạt động:',
+        inputReferrerTips:'Nhập địa chỉ referrer hợp lệ',
+        clickBind:'Click Bind',
+        confirmBind:'Xác nhận Bind trong ví',
+        alreadyBound: 'Referrer này đã được Bind',
+        invalidAddress: 'Địa chỉ referrer không hợp lệ'
+      },
       error: {
         connectWallet: 'Proszę podłączyć portfel',
         highTraffic: 'Okres dużego ruchu, spróbuj ponownie później',
@@ -1093,7 +1161,7 @@ const resources = {
       stake: {
         title: 'Przegląd wydajności',
         subtitle: 'Śledzenie akumulacji dochodów w czasie rzeczywistym...',
-        selectLockDuration: 'Wybierz okres blokady',
+        selectStakeDuration: 'Wybierz okres stakingu',
         stakeAssets: 'Stake aktywów',
         amountToStake: 'Kwota do stakingu（USD1）',
         dailyRate: 'Dzienny kurs',
@@ -1148,7 +1216,9 @@ const resources = {
         viewAllMembers: 'Pokaż wszystkich członków',
         loadingTeamMembers: 'Ładowanie członków zespołu...',
         noDirectReferrals: 'Jeszcze żadnych bezpośrednich rekomendacji',
-        connectWalletToView: 'Aby zobaczyć zespół, połącz portfel'
+        connectWalletToView: 'Aby zobaczyć zespół, połącz portfel',
+        notBound: 'Jeszcze nie zbindowano referenta',
+        bindSuperior: 'Zbinduj referenta',
       },
       mine: {
         title: 'Górnictwo',
@@ -1316,6 +1386,18 @@ const resources = {
         connect: 'Kết nối ví',
         connecting: 'Đang kết nối...'
       },
+      referrer: {
+        title: 'Programmable',
+        subtitle: 'Cộng tác và tạo ra tương lai với staking và giới thiệu',
+        inputReferrer: 'Nhập địa chỉ referrer',
+        bind: 'Bind',
+        howToPperate:'Cách hoạt động:',
+        inputReferrerTips:'Nhập địa chỉ referrer hợp lệ',
+        clickBind:'Click Bind',
+        confirmBind:'Xác nhận Bind trong ví',
+        alreadyBound: 'Referrer này đã được Bind',
+        invalidAddress: 'Địa chỉ referrer không hợp lệ'
+      },
       error: {
         connectWallet: 'Vui lòng kết nối ví',
         highTraffic: 'Thời gian traffic cao, vui lòng thử lại sau',
@@ -1332,7 +1414,7 @@ const resources = {
       stake: {
         title: 'Tổng quan hiệu suất',
         subtitle: 'Theo dõi tích lũy lợi suất theo thời gian thực...',
-        selectLockDuration: 'Chọn thời gian khóa',
+        selectStakeDuration: 'Chọn thời gian staking',
         stakeAssets: 'Tài sản stake',
         amountToStake: 'Số tiền để stake（USD1）',
         dailyRate: 'Tỷ lệ hàng ngày',
@@ -1387,7 +1469,9 @@ const resources = {
         viewAllMembers: 'Xem tất cả thành viên',
         loadingTeamMembers: 'Đang tải thành viên team...',
         noDirectReferrals: 'Chưa có giới thiệu trực tiếp nào',
-        connectWalletToView: 'Kết nối ví để xem team'
+        connectWalletToView: 'Kết nối ví để xem team',
+        notBound: 'Chưa zbindowano referenta',
+        bindSuperior: 'Zbinduj referenta',
       },
       mine: {
         title: 'Mining',
@@ -1555,6 +1639,18 @@ const resources = {
         connect: 'เชื่อมต่อ Wallet',
         connecting: 'กำลังเชื่อมต่อ...'
       },
+      referrer: {
+        title: 'โปรGRAMmable',
+        subtitle: 'ร่วมสร้างอนาคตด้วยการ staking และการ giới thiệu',
+        inputReferrer: 'ป้อนที่อยู่ referrer',
+        bind: 'Bind',
+        howToPperate:'การเชื่อมต่อ:',
+        inputReferrerTips:'ป้อนที่อยู่ referrer ที่ถูกต้อง',
+        clickBind:'คลิก Bind',
+        confirmBind:'ยืนยันการ Bind ใน wallet',
+        alreadyBound: 'referrer นี้ถูก Bind แล้ว',
+        invalidAddress: 'ที่อยู่ referrer ไม่ถูกต้อง'
+      },
       error: {
         connectWallet: 'โปรดเชื่อมต่อ wallet',
         highTraffic: 'ช่วงเวลาการเข้าชมสูง โปรดลองอีกครั้งในภายหลัง',
@@ -1596,7 +1692,7 @@ const resources = {
       stake: {
         title: 'ภาพรวมประสิทธิภาพ',
         subtitle: 'กำลังติดตามการสะสมผลตอบแทนแบบเรียลไทม์...',
-        selectLockDuration: 'เลือกระยะการล็อค',
+        selectStakeDuration: 'เลือกระยะการล็อค',
         stakeAssets: 'ทรัพย์สิน stake',
         amountToStake: 'จำนวนเงินที่จะ stake（USD1）',
         dailyRate: 'อัตราในรายวัน',
@@ -1651,7 +1747,9 @@ const resources = {
         viewAllMembers: 'ดูสมาชิกทั้งหมด',
         loadingTeamMembers: 'กำลังโหลดสมาชิกทีม...',
         noDirectReferrals: 'ยังไม่มีการแนะนำโดยตรง',
-        connectWalletToView: 'เชื่อมต่อwalletเพื่อดูทีม'
+        connectWalletToView: 'เชื่อมต่อwalletเพื่อดูทีม',
+        notBound: 'ยังไม่zbindowano referenta',
+        bindSuperior: 'Zbinduj referenta',
       },
       mine: {
         title: 'เหมือง',

@@ -3,6 +3,7 @@ import { Icon } from "@iconify/react";
 import { useAccount } from "wagmi";
 import { useTranslation } from "react-i18next";
 import Notification from "../components/Notification.jsx";
+import ReferrerDialog from "../components/ReferrerDialog.jsx";
 import {
   fetchUserInfo,
   fetchTeamInfo,
@@ -40,6 +41,7 @@ function TeamView() {
 
   // Invite functionality
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [showReferrerDialog, setShowReferrerDialog] = useState(false);
   const [notifications, setNotifications] = useState([]); // 通知数组
   
   // Notification helper functions
@@ -414,27 +416,42 @@ function TeamView() {
                   <div className="grid lg:grid-cols-2 gap-4">
                     {/* Referrer Info */}
 
-                    {isConnected &&
-                      userInfo?.referrer &&
-                      userInfo.referrer !==
-                        "0x0000000000000000000000000000000000000000" && (
-                        <div className="">
-                          <p className="text-[#a692c9] text-lg mb-2">
-                            {t('team.yourReferrer')}
-                          </p>
+                    {isConnected && (
+                      <div className="">
+                        <p className="text-[#a692c9] text-lg mb-2">
+                          {t('team.yourReferrer')}
+                        </p>
+                        {userInfo?.referrer && userInfo.referrer !== "0x0000000000000000000000000000000000000000" ? (
                           <div className="glass-panel p-4 rounded-lg border border-white/10 mb-4 flex items-center ">
-                            <span className="text-sm text-white font-mono">
+                            <span className="text-sm text-white font-mono break-all">
                               {userInfo.referrer}
                             </span>
                           </div>
-                        </div>
-                      )}
+                        ) : (
+                          
+                          <div className="">
+                            <div className="glass-panel p-4 rounded-lg border border-white/10 mb-4 flex flex-col items-center gap-4">
+                              <span className="text-sm text-white/60">
+                                {t('team.notBound')}
+                              </span>
+                            </div>
+                            <button
+                              className="px-4 py-3 mt-4 w-full bg-primary hover:bg-primary/90 rounded-lg text-white font-bold transition-colors flex items-center justify-center gap-2"
+                              onClick={() => setShowReferrerDialog(true)}
+                            >
+                              <Icon icon="mdi:link" />
+                              {t('team.bindSuperior')}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
                     <div>
                       <p className="text-[#a692c9] text-lg mb-2">
                         {t('team.yourInvitationLink')}
                       </p>
                       <div className=" gap-3">
-                        <div className="glass-panel flex-1 bg-white/5 border border-white/10 rounded-lg p-4 text-sm font-mono">
+                        <div className="glass-panel flex-1 bg-white/5 border border-white/10 rounded-lg p-4 text-sm font-mono break-all">
                           {inviteLink}
                         </div>
                         <button
@@ -658,6 +675,9 @@ function TeamView() {
       {/* Animated Grid Background */}
       <div className="fixed inset-0 z-0 bg-grid opacity-50 pointer-events-none"></div>
       <div className="fixed inset-0 z-0 bg-[radial-gradient(circle_at_50%_50%,rgba(124,59,237,0.1)_0%,transparent_50%)] pointer-events-none"></div>
+      
+      {/* Referrer Dialog */}
+      <ReferrerDialog visible={showReferrerDialog} onClose={() => setShowReferrerDialog(false)} />
     </div>
   );
 }

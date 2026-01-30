@@ -18,7 +18,8 @@ export const useWalletIntegration = () => {
   // Extract referrer from URL params
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
-    const referrer = urlParams.get('ref');
+    // 支持两种参数名: code (与老项目一致) 和 ref
+    const referrer = urlParams.get('code') || urlParams.get('ref');
     if (referrer) {
       setReferrer(referrer);
       // Store in localStorage for persistence

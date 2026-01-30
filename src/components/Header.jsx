@@ -29,16 +29,16 @@ function Header({ isOpen, toggleMenu }) {
       <header className="flex items-center justify-between border-b border-border-dark px-6 py-4 glass sticky top-0 z-50 glass-panel">
           <div className="button-aside lg:hidden">
             <div className="menu-icon flex items-center gap-4  text-slate-900 dark:text-white cursor-pointer" onClick={toggleMenu}>
-            <Icon icon={isOpen ? "mdi:close" : "mdi:menu"} className="size-6" />
+            <Icon icon={isOpen ? "mdi:close" : "mdi:menu"} className="text-3xl" />
             </div>
           </div>
-        <div className="flex items-center justify-between gap-3">
-            <div className="size-10 flex items-center justify-center shadow-primary/20">
-              <img src="/img/logo.svg" alt="Morgan Protocol" className="w-full h-full object-contain" />
+          <div className="flex ">
+            <div className="w-32 h-8 flex items-center">
+              <img src="/img/logo_white.svg" alt="" />
             </div>
-            <div className="flex items-center gap-3 text-white">
+            {/* <div className="flex items-center gap-3 text-white">
               <h2 className="text-xl font-bold tracking-tight bg-gradient-to-r from-white to-primary/60 bg-clip-text text-transparent">Morgan Protocol</h2>
-            </div>
+            </div> */}
           </div>
         <div className="flex items-center gap-6">
           <WalletConnect />
@@ -47,7 +47,7 @@ function Header({ isOpen, toggleMenu }) {
               className="p-2 rounded-full hover:bg-white/10 transition-colors"
               onClick={() => setIsLanguageMenuOpen(!isLanguageMenuOpen)}
             >
-              <Icon icon="mdi:earth" className="size-6" />
+              <Icon icon="mdi:earth" className="text-3xl" />
             </button>
             {isLanguageMenuOpen && (
               <div className="absolute right-0 mt-2 w-48 bg-white/10 backdrop-blur-lg rounded-lg shadow-lg border border-white/20 animate-fade-in">

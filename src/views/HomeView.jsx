@@ -181,13 +181,13 @@ function HomeView() {
               className="md:hidden text-white " 
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             >
-              <Icon icon={isMobileMenuOpen ? "mdi:close" : "mdi:menu"} className="size-6" />
+              <Icon icon={isMobileMenuOpen ? "mdi:close" : "mdi:menu"} className="text-3xl" />
           </button>
-          <div className="flex items-center gap-3">
-            <div className="size-10 flex items-center justify-center rounded-lg shadow-lg shadow-primary/20">
-              <img src="/img/logo.svg" alt="" />
+          <div className="flex ">
+            <div className="w-32 h-8 flex items-center">
+              <img src="/img/logo_white.svg" alt="" />
             </div>
-            <h2 className="text-xl font-bold tracking-tight bg-gradient-to-r from-white to-primary/60 bg-clip-text text-transparent">Morgan Protocol</h2>
+            {/* <h2 className="text-xl font-bold tracking-tight bg-gradient-to-r from-white to-primary/60 bg-clip-text text-transparent">Morgan Protocol</h2> */}
           </div>
           
 
@@ -209,7 +209,7 @@ function HomeView() {
                 className="p-2 rounded-full hover:bg-white/10 transition-colors"
                 onClick={() => setIsLanguageMenuOpen(!isLanguageMenuOpen)}
               >
-                <Icon icon="mdi:earth" className="size-6" />
+                <Icon icon="mdi:earth" className="text-3xl" />
               </button>
               {isLanguageMenuOpen && (
                 <div className="absolute right-0 mt-2 w-48 bg-white/10 backdrop-blur-lg rounded-lg shadow-lg border border-white/20 animate-fade-in">
@@ -305,7 +305,7 @@ function HomeView() {
           <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="glass-panel p-6 rounded-xl border border-white/5 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <Icon icon="mdi:cloud" className="text-primary" />
+                <Icon icon="mdi:cloud" className="text-primary text-3xl" />
                 <span className="font-bold">{t('common.globalStakingStats')}</span>
               </div>
               <div className="text-sm text-white/70">
@@ -314,7 +314,7 @@ function HomeView() {
             </div>
             <div className="glass-panel p-6 rounded-xl border border-white/5 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <Icon icon="mdi:account-circle" className="text-primary" />
+                <Icon icon="mdi:account-circle" className="text-primary text-3xl" />
                 <span className="font-bold">{t('common.userStatus')}</span>
               </div>
               <span className="text-sm text-white/70">
@@ -331,7 +331,7 @@ function HomeView() {
             <div className="glow-card p-8 rounded-xl flex flex-col gap-3 animate-breathing">
               <div className="flex items-center justify-between">
                 <p className="text-slate-400 text-sm font-medium uppercase tracking-wider">{t('common.totalValueLocked')}</p>
-                <Icon icon="solar:wallet-bold" className="text-primary" />
+                <Icon icon="solar:wallet-bold" className="text-primary text-3xl" />
               </div>
               <p className="text-4xl font-bold tracking-tight">
                 {globalStats.loading ? '...' : `$${formatWei(globalStats.currentStake, 0)}`}
@@ -343,7 +343,7 @@ function HomeView() {
             <div className="glow-card p-8 rounded-xl flex flex-col gap-3 animate-breathing" style={{ animationDelay: '0.5s' }}>
               <div className="flex items-center justify-between">
                 <p className="text-slate-400 text-sm font-medium uppercase tracking-wider">{t('common.24hNewStakes')}</p>
-                <Icon icon="lsicon:lightning-filled" className="text-accent-blue size-6" />
+                <Icon icon="lsicon:lightning-filled" className="text-accent-blue text-3xl" />
               </div>
               <p className="text-4xl font-bold tracking-tight">
                 {dateStats.loading ? '...' : `$${formatWei(dateStats.total_stake, 0)}`}
@@ -364,7 +364,7 @@ function HomeView() {
             <div className="glow-card p-8 rounded-xl flex flex-col gap-3 animate-breathing" style={{ animationDelay: '1s' }}>
               <div className="flex items-center justify-between">
                 <p className="text-slate-400 text-sm font-medium uppercase tracking-wider">{t('common.yourPerformance')}</p>
-                <Icon icon="fluent:people-team-24-filled" className="text-purple-400 size-6" />
+                <Icon icon="fluent:people-team-24-filled" className="text-purple-400 text-3xl" />
               </div>
               <p className="text-4xl font-bold tracking-tight">
                 {!isConnected ? 'N/A' : userLoading ? '...' : `$${formatWei(userInfo?.personal_performance || '0', 0)}`}

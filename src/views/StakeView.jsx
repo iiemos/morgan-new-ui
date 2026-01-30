@@ -1,17 +1,27 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Icon } from '@iconify/react';
 import useStakeStore from '../stores/stakeStore';
 import { useWalletIntegration } from '../hooks/useWalletIntegration';
 import { useTranslation } from 'react-i18next';
 import { fetchGlobalStakeStats, formatWei } from '../api/index.js';
+import ReferrerDialog from '../components/ReferrerDialog.jsx';
+import { createPublicClient, http } from 'viem';
+import TEAMLEVEL_ABI from '../abis/TeamLevel.json';
+import { useAccount } from 'wagmi';
+import { useNotification } from '../App.jsx';
 
 function StakeView() {
   // Initialize wallet integration
   useWalletIntegration();
   
   const { t } = useTranslation();
-  const [error, setError] = useState(null);
-  const [successMessage, setSuccessMessage] = useState(null);
+  // const { address, isConnected } = useAccount();
+  
+    const {  isConnected } = useAccount();
+  const address = '0x62da8a37619ef2b2aa42fb14b343bab6a759d9b1'
+  const [showReferrerDialog, setShowReferrerDialog] = useState(false);
+  const [checkingReferral, setCheckingReferral] = useState(false);
+  const { addNotification } = useNotification();
   
   // Global staking stats
   const [globalStats, setGlobalStats] = useState({
@@ -19,9 +29,12 @@ function StakeView() {
     loading: true
   });
   
+  // Contract addresses and RPC URL
+  const TEAM_LEVEL_ADDRESS = import.meta.env.VITE_TEAM_LEVEL_ADDRESS || '0x1a5a3A1F23f6314Ffac0705fC19B9c6c9319Ae82';
+  const RPC_URL = import.meta.env.VITE_RPC_URL || 'https://rpc.movachain.com/';
+  
   const {
     // State
-    isConnected,
     usdtBalance,
     aigBalance,
     stakeAmount,
@@ -108,80 +121,107 @@ function StakeView() {
 
   const handleStake = async () => {
     try {
-      setError(null);
-      setSuccessMessage(null);
-      
       if (validateStakeAmount()) {
-        await onStake();
-        setSuccessMessage(t('success.stakeSuccessful'));
+        // 检查用户是否绑定了邀请人
+        if (isConnected && address) {
+          console.log('Checking referral binding status before staking...');
+          const isBound = await checkReferralBinding(address);
+          
+          if (!isBound) {
+            console.log('User has not bound a referrer, showing referrer dialog');
+            setShowReferrerDialog(true);
+            return;
+          }
+          console.log('User has bound a referrer, proceeding with staking');
+        }
         
-        // Clear success message after 3 seconds
-        setTimeout(() => setSuccessMessage(null), 3000);
+        // 执行质押操作
+        await onStake();
+        addNotification('success', t('success.stakeSuccessful'));
       }
     } catch (err) {
-      setError(err.message || 'Staking failed');
-      
-      // Clear error after 5 seconds
-      setTimeout(() => setError(null), 5000);
+      // 如果是新用户需要绑定邀请人的错误，显示绑定弹窗
+      if (err.message && (err.message.includes('newUserReferral') || err.message.includes('invitation'))) {
+        setShowReferrerDialog(true);
+      } else {
+        addNotification('error', err.message || 'Staking failed');
+      }
     }
   };
 
   const handleUnstake = async (index) => {
     try {
-      setError(null);
-      setSuccessMessage(null);
-      
       await onUnstake(index);
-      setSuccessMessage(t('success.unstakeSuccessful'));
-      
-      // Clear success message after 3 seconds
-      setTimeout(() => setSuccessMessage(null), 3000);
+      addNotification('success', t('success.unstakeSuccessful'));
     } catch (err) {
-      setError(err.message || 'Unstaking failed');
+      addNotification('error', err.message || 'Unstaking failed');
+    }
+  };
+  
+  // Check if user has bound a referrer
+  const checkReferralBinding = async (address) => {
+    try {
+      setCheckingReferral(true);
       
-      // Clear error after 5 seconds
-      setTimeout(() => setError(null), 5000);
+      // Create public client
+      const publicClient = createPublicClient({
+        transport: http(RPC_URL)
+      });
+      
+      // Test RPC connection
+      try {
+        const blockNumber = await publicClient.getBlockNumber();
+        console.log('RPC connection successful, current block height:', blockNumber);
+      } catch (rpcError) {
+        console.error('RPC connection failed:', rpcError);
+        return false;
+      }
+      
+      // Check if contract address is valid
+      if (TEAM_LEVEL_ADDRESS === '0x1') {
+        console.warn('Using fallback team level address, contract calls will fail');
+        return false;
+      }
+      
+      // Check if contract exists
+      try {
+        const code = await publicClient.getCode({ address: TEAM_LEVEL_ADDRESS });
+        if (code === '0x') {
+          console.error('Contract not deployed at address:', TEAM_LEVEL_ADDRESS);
+          return false;
+        }
+        console.log('Contract exists at address:', TEAM_LEVEL_ADDRESS);
+      } catch (codeError) {
+        console.error('Error checking contract code:', codeError);
+        return false;
+      }
+      
+      // Call isBindReferral method
+      try {
+        const bound = await publicClient.readContract({
+          address: TEAM_LEVEL_ADDRESS,
+          abi: TEAMLEVEL_ABI,
+          functionName: 'isBindReferral',
+          args: [address]
+        });
+        
+        console.log('Referral binding status:', bound);
+        return bound;
+      } catch (callError) {
+        console.error('Error calling isBindReferral method:', callError);
+        return false;
+      }
+    } catch (error) {
+      console.error('Error checking referral binding:', error);
+      return false;
+    } finally {
+      setCheckingReferral(false);
     }
   };
 
   return (
     <div className="dark:bg-background-dark font-display text-white min-h-screen">
-      {/* Notifications */}
-      {error && (
-        <div className="fixed top-4 right-4 z-50 bg-red-500 text-white px-6 py-4 rounded-lg shadow-lg max-w-md animate-pulse">
-          <div className="flex items-center gap-3">
-            <Icon icon="mdi:alert-circle" className="text-xl" />
-            <div>
-              <p className="font-bold">{t('common.error')}</p>
-              <p className="text-sm">{error}</p>
-            </div>
-            <button 
-              onClick={() => setError(null)}
-              className="ml-auto hover:bg-red-600 rounded p-1"
-            >
-              <Icon icon="mdi:close" />
-            </button>
-          </div>
-        </div>
-      )}
-      
-      {successMessage && (
-        <div className="fixed top-4 right-4 z-50 bg-green-500 text-white px-6 py-4 rounded-lg shadow-lg max-w-md">
-          <div className="flex items-center gap-3">
-            <Icon icon="mdi:check-circle" className="text-xl" />
-            <div>
-              <p className="font-bold">{t('common.success')}</p>
-              <p className="text-sm">{successMessage}</p>
-            </div>
-            <button 
-              onClick={() => setSuccessMessage(null)}
-              className="ml-auto hover:bg-green-600 rounded p-1"
-            >
-              <Icon icon="mdi:close" />
-            </button>
-          </div>
-        </div>
-      )}
+
       
       <div className="flex flex-col lg:flex-row">
         {/* Main Content Area */}
@@ -196,7 +236,7 @@ function StakeView() {
           <div className="glass-panel neon-border-purple rounded-2xl px-6 lg:px-10 py-4 border-b border-[#312447] bg-background-dark/50 backdrop-blur-md mb-8">
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
               <div className="flex flex-col">
-                <h2 className="text-xl font-bold tracking-tight bg-gradient-to-r from-white to-primary/60 bg-clip-text text-transparent">Morgan Staking</h2>
+                <h2 className="text-xl font-bold tracking-tight bg-gradient-to-r from-white to-primary/60 bg-clip-text text-transparent">{ t('mine.assetBalances') }</h2>
               </div>
               
               <div className="lg:flex lg:flex-wrap grid grid-cols-2 gap-6 gap-3 lg:gap-4 -mx-6 px-6 lg:mx-0 lg:px-0">
@@ -227,7 +267,7 @@ function StakeView() {
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-bold flex items-center gap-2">
                 <Icon icon="mdi:clock-outline" className="text-primary" />
-                {t('stake.selectLockDuration')}
+                {t('stake.selectStakeDuration')}
               </h3>
               <button className="text-primary hover:text-primary/80 transition-colors">
                 <Icon icon="mdi:information-outline" className="text-2xl" />
@@ -259,7 +299,7 @@ function StakeView() {
                     <div className="flex justify-between text-sm">
                       <span className="text-[#a692c8]">{t('stake.dailyRate')}</span>
                       <span className="text-white font-bold">
-                        {i== 0 ? '0.3000' : '1.5000'}%
+                        {i== 0 ? '0.3000' : '1.3000'}%
                       </span>
                     </div>
                   </div>
@@ -548,6 +588,9 @@ function StakeView() {
       {/* Animated Grid Background */}
       <div className="fixed inset-0 z-0 bg-grid opacity-50 pointer-events-none"></div>
       <div className="fixed inset-0 z-0 bg-[radial-gradient(circle_at_50%_50%,rgba(124,59,237,0.1)_0%,transparent_50%)] pointer-events-none"></div>
+      
+      {/* Referrer Dialog */}
+      <ReferrerDialog visible={showReferrerDialog} onClose={() => setShowReferrerDialog(false)} />
     </div>
   );
 }

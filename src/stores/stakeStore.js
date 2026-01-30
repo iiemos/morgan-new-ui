@@ -172,6 +172,7 @@ const useStakeStore = create((set, get) => ({
         })(),
         // 1: Get stake info
         stakingContract.userStakeInfos(userAddress),
+        // stakingContract.userStakeInfos('0xc49592daef21fa0e541b0c50cc2fc615c4775a91'),
         // 2: Get hourly limits
         (async () => {
           const [limit1Day, limit30Day] = await Promise.all([
@@ -410,32 +411,69 @@ const useStakeStore = create((set, get) => ({
   
   // Unstake functionality with real contract calls
   onUnstake: async (index) => {
+    console.log('onUnstake called with index:', index);
     try {
       const { isConnected, stakeList } = get();
       
+      console.log('isConnected:', isConnected);
+      console.log('stakeList length:', stakeList.length);
+      
       if (!isConnected) {
+        console.error('Wallet not connected');
         throw new Error(i18n.t('error.connectWallet'));
       }
       
       const record = stakeList[index];
-      if (!record || !get().canUnstake(record)) {
-        throw new Error(i18n.t('error.unstakeFailed'));
+      console.log('Stake record:', record);
+      
+      if (!record) {
+        console.error('Stake record not found for index:', index);
+        throw new Error('Stake record not found');
+      }
+      
+      const canUnstakeResult = get().canUnstake(record);
+      console.log('canUnstake result:', canUnstakeResult);
+      
+      if (!canUnstakeResult) {
+        console.error('Cannot unstake at this time');
+        throw new Error('Cannot unstake at this time');
       }
       
       set({ UnstakeLoading: true });
+      console.log('UnstakeLoading set to true');
       
-      // Call real unstake function directly
+      // Initialize contract for write operation
+      console.log('Initializing contract...');
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      console.log('Signer obtained:', await signer.getAddress());
+      
+      const stakingContract = new ethers.Contract(
+        import.meta.env.VITE_STAKING_ADDRESS || '0xD82B1B0D51CB0D220eFbbbf2BBf3E2cCf173E722', 
+        StakingABI, 
+        signer
+      );
+      
+      // Call real unstake function with the correct index
+      console.log('Calling unstake function with index:', index);
       const tx = await stakingContract.unstake(index);
+      console.log('Transaction sent:', tx.hash);
+      
+      console.log('Waiting for transaction to confirm...');
       await tx.wait();
+      console.log('Transaction confirmed');
       
       // Reload data from contracts
+      console.log('Reloading stake data...');
       await get().loadStakeData();
+      console.log('Stake data reloaded');
       
     } catch (error) {
       console.error('Unstake failed:', error);
       throw error; // Re-throw to let component handle error
     } finally {
       set({ UnstakeLoading: false });
+      console.log('UnstakeLoading set to false');
     }
   },
   

@@ -719,7 +719,7 @@ function SwapView() {
                             <span className="text-white/50">{t('swap.currentSlippage')}</span>
                             <span className="font-bold">{slippage}%</span>
                           </div>
-                          <div className="flex justify-between text-sm mt-1">
+                          <div className="flex justify-between text-lg mt-1">
                             <span className="text-white/50">{t('swap.minimumReceived')}</span>
                             <span className="font-bold text-green-400">{(toAmount ? (parseFloat(toAmount) * (1 - slippage / 100)).toFixed(4) : '0.0000')} {toToken}</span>
                           </div>
@@ -730,19 +730,19 @@ function SwapView() {
                 </div>
                 <div className="bg-background-dark/60 border border-white/5 p-5 rounded-2xl mb-2 hover:border-primary/40 transition-all">
                   <div className="flex justify-between items-center mb-3">
-                    <span className="text-white/50 text-sm font-medium uppercase tracking-wider">{t('swap.from')}</span>
-                    <span className="text-white/50 text-xs">{t('swap.balance')} <span className="text-white/80">{fromBalance.toFixed(3)} {fromToken}</span></span>
+                    <span className="text-white/50 text-lg font-medium uppercase tracking-wider">{t('swap.from')}</span>
+                    <span className="text-white/50 text-lg">{t('swap.balance')} <span className="text-white/80">{fromBalance.toFixed(3)} {fromToken}</span></span>
                   </div>
                   <div className="flex items-center gap-4">
                     <input className="from-input bg-transparent border-none focus:ring-0 text-3xl font-bold text-white w-full p-0 placeholder:text-white/20" placeholder="0.00" value={fromAmount} onChange={(e) => setFromAmount(e.target.value)} />
                     <div className="flex items-center gap-2">
-                      <button className="bg-primary/20 hover:bg-primary/40 text-primary text-[10px] font-bold px-2 py-1 rounded-md transition-all" onClick={setMaxAmount}>{t('swap.max')}</button>
+                      <button className="bg-primary/20 hover:bg-primary/40 text-primary text-[10px] font-bold px-2 py-1 rounded-md transition-all" onClick={setMaxAmount}>MAX</button>
                       <div className="flex items-center gap-2 bg-background-dark border border-white/10 px-3 py-2 rounded-xl cursor-pointer hover:bg-white/5 transition-all">
                         <div className={`size-6 ${fromToken === 'USD1' ? 'bg-green-500/20' : 'bg-primary/20'} rounded-full flex items-center justify-center`}>
                           <img src={fromToken === 'USD1' ? '/img/usd1.png' : '/img/logo.svg'} alt={fromToken} className="size-6" />
                         </div>
-                        <span className="font-bold text-sm">{fromToken}</span>
-                        <Icon icon="mdi:chevron-down" className="text-sm text-white/40" />
+                        <span className="font-bold text-lg">{fromToken}</span>
+                        <Icon icon="mdi:chevron-down" className="text-lg text-white/40" />
                       </div>
                     </div>
                   </div>
@@ -754,8 +754,8 @@ function SwapView() {
                 </div>
                 <div className="bg-background-dark/60 border border-white/5 p-5 rounded-2xl mt-2 hover:border-primary/40 transition-all">
                   <div className="flex justify-between items-center mb-3">
-                    <span className="text-white/50 text-sm font-medium uppercase tracking-wider">{t('swap.to')}</span>
-                    <span className="balance-to text-white/50 text-xs">{t('swap.balance')} <span className="text-white/80">{toBalance.toFixed(3)} {toToken}</span></span>
+                    <span className="text-white/50 text-lg font-medium uppercase tracking-wider">{t('swap.to')}</span>
+                    <span className="balance-to text-white/50 text-lg">{t('swap.balance')} <span className="text-white/80">{toBalance.toFixed(3)} {toToken}</span></span>
                   </div>
                   <div className="flex items-center gap-4">
                     <input className="to-input bg-transparent border-none focus:ring-0 text-3xl font-bold text-white w-full p-0 placeholder:text-white/20" placeholder="0.00" readOnly value={toAmount} />
@@ -764,26 +764,26 @@ function SwapView() {
                         <div className={`size-6 ${toToken === 'USD1' ? 'bg-green-500/20' : 'bg-primary/20'} rounded-full flex items-center justify-center`}>
                           <img src={toToken === 'USD1' ? '/img/usd1.png' : '/img/logo.svg'} alt={toToken} className="size-6" />
                         </div>
-                        <span className="font-bold text-sm">{toToken}</span>
-                        <Icon icon="mdi:chevron-down" className="text-sm text-white/40" />
+                        <span className="font-bold text-lg">{toToken}</span>
+                        <Icon icon="mdi:chevron-down" className="text-lg text-white/40" />
                       </div>
                     </div>
                   </div>
                 </div>
                 <div className="mt-6 space-y-3 px-2">
-                  <div className="flex justify-between text-xs">
+                  <div className="flex justify-between text-lg">
                     <span className="text-white/40">{t('swap.exchangeRate')}</span>
                     <span className="exchange-rate text-white/70">{exchangeRateText}</span>
                   </div>
-                  <div className="flex justify-between text-xs">
+                  <div className="flex justify-between text-lg">
                     <span className="text-white/40">{t('swap.priceImpact')}</span>
                     <span className={`price-impact text-green-400`}>{(slippage / 100 * (fromAmount ? parseFloat(fromAmount) : 0)).toFixed(2)}%</span>
                   </div>
-                  <div className="flex justify-between text-xs">
+                  <div className="flex justify-between text-lg">
                     <span className="text-white/40">{t('swap.liquidityFee')}</span>
                     <span className="text-white/70">0.03 {fromToken}</span>
                   </div>
-                  <div className="flex justify-between text-xs">
+                  <div className="flex justify-between text-lg">
                     <span className="text-white/40">{t('swap.minimumReceived')}</span>
                     <span className="minimum-received text-white/70">{(toAmount ? (parseFloat(toAmount) * (1 - slippage / 100)).toFixed(4) : '0.0000')} {toToken}</span>
                   </div>
@@ -791,15 +791,15 @@ function SwapView() {
                   {/* 购买限制信息 */}
                   {fromToken === 'USD1' && toToken === 'MGN' && userInfo && (
                     <div className="buy-limit-info mt-4 pt-4 border-t border-primary/10">
-                      <div className="flex justify-between text-xs mb-2">
+                      <div className="flex justify-between text-lg mb-2">
                         <span className="text-white/40">{t('swap.purchaseLimit')}</span>
                         <span className="text-white/70">{userInfo.limit} {fromToken}</span>
                       </div>
-                      <div className="flex justify-between text-xs mb-2">
+                      <div className="flex justify-between text-lg mb-2">
                         <span className="text-white/40">{t('swap.purchased')}</span>
                         <span className="text-white/70">{userInfo.bought} {fromToken}</span>
                       </div>
-                      <div className="flex justify-between text-xs">
+                      <div className="flex justify-between text-lg">
                         <span className="text-white/40">{t('swap.remainingLimit')}</span>
                         <span className="text-green-400">{userInfo.remaining} {fromToken}</span>
                       </div>
