@@ -8,6 +8,7 @@ import ERC20_ABI from '../abis/ERC20.json'
 import USD1SWAP_ROUTER_ABI from '../abis/IUsd1swapRouter02ABI.json'
 import TRADING_ABI from '../abis/TradingABI.json'
 import { useTranslation } from 'react-i18next'
+import { useWalletVerification } from '../App.jsx'
 
 // Addresses
 const USD1SWAP_ROUTER_ADDRESS = '0xfdc450300611776F640Cd5e879D678Acd455087c'
@@ -25,6 +26,7 @@ function SwapView() {
   // const {  isConnected } = useAccount();
   // const address = '0xc4bbfad25740517144361a4215054ecd8b70c148'
   const { t } = useTranslation()
+  const { isVerified } = useWalletVerification()
 
   // UI state
   const [fromToken, setFromToken] = useState('USD1')
@@ -86,7 +88,7 @@ function SwapView() {
     abi: ERC20_ABI,
     functionName: 'allowance',
     args: [address ?? '0x0', TRADING_ADDRESS],
-    enabled: !!address
+    enabled: !!address && isVerified
   })
   // USDT授权到Router (保留用于其他场景)
   const { data: usdtAllowance, refetch: refetchUsdtAllowance } = useReadContract({
@@ -94,7 +96,7 @@ function SwapView() {
     abi: ERC20_ABI,
     functionName: 'allowance',
     args: [address ?? '0x0', USD1SWAP_ROUTER_ADDRESS],
-    enabled: !!address
+    enabled: !!address && isVerified
   })
   // MGN授权到Router (用于sell/swap)
   const { data: mgnAllowance, refetch: refetchMgnAllowance } = useReadContract({
@@ -102,7 +104,7 @@ function SwapView() {
     abi: ERC20_ABI,
     functionName: 'allowance',
     args: [address ?? '0x0', USD1SWAP_ROUTER_ADDRESS],
-    enabled: !!address
+    enabled: !!address && isVerified
   })
   
   // Token balances (from chain)
@@ -111,14 +113,14 @@ function SwapView() {
     abi: ERC20_ABI,
     functionName: 'balanceOf',
     args: [address ?? '0x0'],
-    enabled: !!address
+    enabled: !!address && isVerified
   })
   const { data: mgnBalance, refetch: refetchMgnBalance } = useReadContract({
     address: MGN_ADDRESS,
     abi: ERC20_ABI,
     functionName: 'balanceOf',
     args: [address ?? '0x0'],
-    enabled: !!address
+    enabled: !!address && isVerified
   })
   
   // User info for purchase limits
@@ -127,7 +129,7 @@ function SwapView() {
     abi: TRADING_ABI,
     functionName: 'getUserInfo',
     args: [address ?? '0x0'],
-    enabled: !!address
+    enabled: !!address && isVerified
   })
   
   // Check if contract is paused
@@ -135,7 +137,7 @@ function SwapView() {
     address: TRADING_ADDRESS,
     abi: TRADING_ABI,
     functionName: 'paused',
-    enabled: true
+    enabled: isVerified
   })
 
   // Approve txs
@@ -144,6 +146,7 @@ function SwapView() {
     abi: ERC20_ABI,
     functionName: 'approve',
     args: [USD1SWAP_ROUTER_ADDRESS, MaxUint256],
+    query: { enabled: isVerified }
   })
 
   const { data: approveMgnData, error: approveMgnError } = useSimulateContract({
@@ -151,6 +154,7 @@ function SwapView() {
     abi: ERC20_ABI,
     functionName: 'approve',
     args: [USD1SWAP_ROUTER_ADDRESS, MaxUint256],
+    query: { enabled: isVerified }
   })
 
   // Router getAmountsOut
@@ -159,14 +163,14 @@ function SwapView() {
     abi: USD1SWAP_ROUTER_ABI,
     functionName: 'getAmountsOut',
     args: [parseUnits('1', 18), [USDT_ADDRESS, MGN_ADDRESS]],
-    enabled: !!address
+    enabled: !!address && isVerified
   })
   const { data: mgnOutData, refetch: refetchMgnOut } = useReadContract({
     address: USD1SWAP_ROUTER_ADDRESS,
     abi: USD1SWAP_ROUTER_ABI,
     functionName: 'getAmountsOut',
     args: [parseUnits('1', 18), [MGN_ADDRESS, USDT_ADDRESS]],
-    enabled: !!address
+    enabled: !!address && isVerified
   })
 
   // Track rates from router
@@ -231,6 +235,16 @@ function SwapView() {
       showNotification(t('error.contractPaused'), 'error')
     }
   }, [isPausedData, t])
+
+  useEffect(() => {
+    if (!isVerified) {
+      setUserInfo(null)
+      setUsd1ToMgnRate('0.0000')
+      setMgnToUsd1Rate('0.0000')
+      setIsContractPaused(false)
+      setIsLiquidityInsufficient(false)
+    }
+  }, [isVerified])
 
   // Set transaction status with auto-clear
   // 更新setTransactionStatusWithClear函数，确保与新的状态管理配合
@@ -427,6 +441,10 @@ function SwapView() {
     // Basic connection check
     if (!isConnected) {
       connectWallet()
+      return
+    }
+    if (!isVerified) {
+      showNotification(t('error.connectWallet'), 'error')
       return
     }
     

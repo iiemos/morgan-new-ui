@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Icon } from '@iconify/react';
-import { useAccount } from 'wagmi';
+import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
 import { useTranslation } from 'react-i18next';
-import { createPublicClient, http, getContract } from 'viem';
 import { 
   fetchUserInfo, 
   fetchStakeRecords, 
@@ -10,27 +9,41 @@ import {
   fetchCommunityReward, 
   fetchTodayStake,
   fetchRewardSummary,
+  requestCommunityRewardSignature,
   formatWei,
   formatAddress,
   transformDay,
   formatTimestamp,
 } from '../api/index.js'
-import RewardTrackerABI from '../abis/RewardTracker.json'
+import CommunityRewardABI from '../abis/CommunityReward.json'
+import S6RewardDistributorABI from '../abis/S6RewardDistributor.json'
+import NodeRewardDistributorABI from '../abis/NodeRewardDistributor.json'
+import { useNotification, useWalletVerification } from '../App.jsx'
 
 function MineView() {
   const { address, isConnected } = useAccount()
+  const publicClient = usePublicClient()
+  const { data: walletClient } = useWalletClient()
   const { t } = useTranslation()
+  const { addNotification } = useNotification()
+  const { isVerified } = useWalletVerification()
+  const CHAIN_ID = parseInt(import.meta.env.VITE_MOVA_CHAIN_ID || '61900', 10)
   
+  // const {  isConnected } = useAccount();
+  // const address = '0xc4bbfad25740517144361a4215054ecd8b70c148'
+  // const address = '0xa2122d69e25821079d6af4a7130cb09f0ff8fd1e'
+  // const address = '0x95c8e33969ba1e96523623e9fbe376a594557aec'
+  // const address = '0xddc6a65251914b361f8784afc79162351009e487'
   // Contract addresses
   const CONTRACTS = {
     REWARD_TRACKER: import.meta.env.VITE_REWARD_TRACKER_ADDRESS || '0xF6ACbC9FE9757e93c85beF796ee52254B6073576',
+    TEAM_LEVEL: import.meta.env.VITE_TEAM_LEVEL_ADDRESS || '0x8a0d8C5f6E05B71FbE716dF4B4cA364B471a217c',
+    COMMUNITY_REWARD: import.meta.env.VITE_COMMUNITY_REWARD_ADDRESS || '0x9d44c9aC514b2C1095B993232f4501780702A048',
+    S6_REWARD_DISTRIBUTOR: import.meta.env.VITE_S6_REWARD_DISTRIBUTOR_ADDRESS || '0xC795B7fE8aA5B02e0159cf42f294472E5A631D79',
+    NODE_REWARD_DISTRIBUTOR: import.meta.env.VITE_NODE_REWARD_DISTRIBUTOR_ADDRESS || '0x3e9E49C8eE7aA505A4d9E89fC22154F9dc53a41B',
   }
-  
-  // RPC URL
-  const RPC_URL = import.meta.env.VITE_RPC_URL || 'https://rpc.movachain.com/'
-    // const {  isConnected } = useAccount();
-  // const address = '0xc4bbfad25740517144361a4215054ecd8b70c148'
-  // const address = '0xa2122d69e25821079d6af4a7130cb09f0ff8fd1e'
+
+
   
   // User info state
   const [userInfo, setUserInfo] = useState(null)
@@ -50,19 +63,30 @@ function MineView() {
   // Community reward
   const [communityReward, setCommunityReward] = useState(null)
   const [rewardLoading, setRewardLoading] = useState(false)
+  const [communityRewardClaiming, setCommunityRewardClaiming] = useState(false)
   
-  // Reward summary
+  // S6 reward
+  const [s6Reward, setS6Reward] = useState(null)
+  const [s6RewardLoading, setS6RewardLoading] = useState(false)
+  const [s6RewardClaiming, setS6RewardClaiming] = useState(false)
+  
+  // Node reward
+  const [nodeReward, setNodeReward] = useState(null)
+  const [nodeRewardLoading, setNodeRewardLoading] = useState(false)
+  const [nodeRewardClaiming, setNodeRewardClaiming] = useState(false)
+  
+  // Node status
+  const [isNode, setIsNode] = useState(false)
+  
+  // Reward summary (API)
   const [rewardSummary, setRewardSummary] = useState(null)
   const [summaryLoading, setSummaryLoading] = useState(false)
-  // Chain reward summary
-  const [chainRewardSummary, setChainRewardSummary] = useState(null)
-  const [chainSummaryLoading, setChainSummaryLoading] = useState(false)
 
   // Fetch user info
   useEffect(() => {
     let mounted = true
     async function loadUserInfo() {
-      if (!isConnected || !address) {
+      if (!isConnected || !address || !isVerified) {
         setUserInfo(null)
         return
       }
@@ -70,6 +94,7 @@ function MineView() {
       try {
         const res = await fetchUserInfo(address)
         if (mounted && res && res.success) {
+          console.log('用户信息',res);
           setUserInfo(res)
         }
       } catch (e) {
@@ -80,13 +105,13 @@ function MineView() {
     }
     loadUserInfo()
     return () => { mounted = false }
-  }, [address, isConnected])
+  }, [address, isConnected, isVerified])
 
   // Fetch stake and unstake records
   useEffect(() => {
     let mounted = true
     async function loadRecords() {
-      if (!isConnected || !address) {
+      if (!isConnected || !address || !isVerified) {
         setStakeRecords([])
         setUnstakeRecords([])
         return
@@ -101,8 +126,9 @@ function MineView() {
           if (stakesRes && stakesRes.success) {
             setStakeRecords(stakesRes.stakes || [])
           }
+          console.log('用户解除质押记录',unstakesRes);
           if (unstakesRes && unstakesRes.success) {
-            setUnstakeRecords(unstakesRes.unstakes || [])
+            setUnstakeRecords(unstakesRes.data || [])
           }
         }
       } catch (e) {
@@ -113,13 +139,13 @@ function MineView() {
     }
     loadRecords()
     return () => { mounted = false }
-  }, [address, isConnected])
+  }, [address, isConnected, isVerified])
 
   // Fetch today's stake
   useEffect(() => {
     let mounted = true
     async function loadTodayStake() {
-      if (!isConnected || !address) {
+      if (!isConnected || !address || !isVerified) {
         setTodayStake({ personal: '0', team: '0' })
         return
       }
@@ -137,13 +163,13 @@ function MineView() {
     }
     loadTodayStake()
     return () => { mounted = false }
-  }, [address, isConnected])
+  }, [address, isConnected, isVerified])
   
   // Fetch community reward
   useEffect(() => {
     let mounted = true
     async function loadCommunityReward() {
-      if (!isConnected || !address) {
+      if (!isConnected || !address || !isVerified) {
         setCommunityReward(null)
         return
       }
@@ -151,6 +177,7 @@ function MineView() {
       try {
         const res = await fetchCommunityReward(address)
         if (mounted && res && res.success) {
+          console.log('获取社区奖励信息：',res);
           setCommunityReward(res)
         }
       } catch (e) {
@@ -161,7 +188,99 @@ function MineView() {
     }
     loadCommunityReward()
     return () => { mounted = false }
-  }, [address, isConnected])
+  }, [address, isConnected, isVerified])
+  
+  // Fetch S6 reward
+  useEffect(() => {
+    let mounted = true
+    async function loadS6Reward() {
+      if (!isConnected || !address || !isVerified || !userInfo || userInfo.team_level < 6) {
+        setS6Reward(null)
+        return
+      }
+      setS6RewardLoading(true)
+      try {
+        if (publicClient && CONTRACTS.S6_REWARD_DISTRIBUTOR) {
+          try {
+            const s6Reward = await publicClient.readContract({
+              address: CONTRACTS.S6_REWARD_DISTRIBUTOR,
+              abi: S6RewardDistributorABI,
+              functionName: 'pendingReward',
+              args: [address]
+            })
+            console.log('S6 reward:', s6Reward)
+            setS6Reward({
+              success: true,
+              pending_reward: s6Reward.toString(),
+              is_eligible: true
+            })
+          } catch (error) {
+            console.warn('获取S6奖励失败:', error)
+            setS6Reward(null)
+          }
+        }
+      } catch (e) {
+        console.error('获取S6奖励失败:', e)
+      } finally {
+        if (mounted) setS6RewardLoading(false)
+      }
+    }
+    loadS6Reward()
+    return () => { mounted = false }
+  }, [address, isConnected, isVerified, userInfo, publicClient])
+  
+  // Fetch node reward
+  useEffect(() => {
+    let mounted = true
+    async function loadNodeReward() {
+      if (!isConnected || !address || !isVerified) {
+        setNodeReward(null)
+        setIsNode(false)
+        return
+      }
+      setNodeRewardLoading(true)
+      try {
+        if (publicClient && CONTRACTS.NODE_REWARD_DISTRIBUTOR) {
+          try {
+            // 检查是否为节点成员
+            const isNodeMember = await publicClient.readContract({
+              address: CONTRACTS.NODE_REWARD_DISTRIBUTOR,
+              abi: NodeRewardDistributorABI,
+              functionName: 'isMember',
+              args: [address]
+            })
+            console.log('是否节点成员:', isNodeMember)
+            setIsNode(isNodeMember)
+            
+            if (isNodeMember) {
+              const nodeReward = await publicClient.readContract({
+                address: CONTRACTS.NODE_REWARD_DISTRIBUTOR,
+                abi: NodeRewardDistributorABI,
+                functionName: 'pendingReward',
+                args: [address]
+              })
+              console.log('Node reward:', nodeReward)
+              setNodeReward({
+                success: true,
+                pending_reward: nodeReward.toString(),
+                is_eligible: true
+              })
+            }
+          } catch (error) {
+            console.warn('获取节点奖励失败:', error)
+            setNodeReward(null)
+            setIsNode(false)
+          }
+        }
+      } catch (e) {
+        console.error('获取节点奖励失败:', e)
+      } finally {
+        if (mounted) setNodeRewardLoading(false)
+      }
+    }
+    loadNodeReward()
+    return () => { mounted = false }
+  }, [address, isConnected, isVerified, publicClient])
   
 
 
@@ -169,15 +288,15 @@ function MineView() {
   useEffect(() => {
     let mounted = true
     async function loadRewardSummary() {
-      if (!isConnected || !address) {
+      if (!isConnected || !address || !isVerified) {
         setRewardSummary(null)
         return
       }
       setSummaryLoading(true)
       try {
         const res = await fetchRewardSummary(address)
+        console.log('获取奖励摘要:', res);
         if (mounted && res && res.success) {
-          console.log('获取我的收益 (API)', res);
           setRewardSummary(res)
         }
       } catch (e) {
@@ -188,128 +307,179 @@ function MineView() {
     }
     loadRewardSummary()
     return () => { mounted = false }
-  }, [address, isConnected])
+  }, [address, isConnected, isVerified])
 
-  // Fetch reward summary from blockchain
-  const fetchChainRewardSummary = async () => {
-    if (!isConnected || !address) {
-      console.log('钱包未连接');
-      return
-    }
+  // Claim community reward
+  const claimCommunityReward = async () => {
+    // 参数检查：确保用户已验证、已连接钱包、有地址、有资格领取奖励、有walletClient且不在领取中
+    if (!isVerified || !isConnected || !address || !communityReward?.is_eligible || !walletClient || communityRewardClaiming) return
     
-    setChainSummaryLoading(true)
     try {
+      // 设置领取中状态，防止用户重复点击
+      setCommunityRewardClaiming(true)
       
-      // Create public client
-      const publicClient = createPublicClient({
-        transport: http(RPC_URL)
-      });
+      // 生成时间戳和签名消息
+      const timestamp = Math.floor(Date.now() / 1000)
+      const message = `CommunityReward Claim Request\n\nAddress: ${address}\nTimestamp: ${timestamp}\nChain: ${CHAIN_ID}`
       
-      // Test RPC connection
-      try {
-        const blockNumber = await publicClient.getBlockNumber();
-        console.log('RPC连接成功，当前区块高度:', blockNumber);
-      } catch (rpcError) {
-        console.error('RPC连接失败:', rpcError);
-        throw new Error('RPC连接失败，请检查网络设置');
+      // 使用钱包签名消息
+      const userSignature = await walletClient.signMessage({ message })
+      
+      // 请求社区奖励签名（后端生成）
+      const signRes = await requestCommunityRewardSignature({
+        user: address,
+        amount: null,
+        user_signature: userSignature,
+        message
+      })
+      
+      // 检查签名响应
+      if (!signRes || !signRes.success) {
+        throw new Error(signRes?.error || 'Failed to request signature')
       }
       
-      // Get RewardTracker contract instance
-      const rewardTrackerContract = getContract({
-        address: CONTRACTS.REWARD_TRACKER,
-        abi: RewardTrackerABI,
-        client: publicClient
-      });
-      console.log('RewardTracker合约实例创建成功');
-      console.log('合约实例方法:', Object.keys(rewardTrackerContract));
-      
-      // Try to call getAllRewardsSummary method
-      try {
-        // 使用read方法调用view函数
-        const summary = await publicClient.readContract({
-          address: CONTRACTS.REWARD_TRACKER,
-          abi: RewardTrackerABI,
-          functionName: 'getAllRewardsSummary',
-          args: [address]
-        });
-        console.log('链上收益汇总原始数据:', summary);
-        
-        // 转换为前端可用格式
-        const formattedSummary = {
-          stakeRewards: summary[0].toString(),
-          directRewards: summary[1].toString(),
-          levelRewards: summary[2].toString(),
-          totalUSDT: summary[0] + summary[1] + summary[2]
-        };
-        
-        console.log('格式化后的链上收益汇总:', {
-          stakeRewards: formatWei(formattedSummary.stakeRewards, 2),
-          directRewards: formatWei(formattedSummary.directRewards, 2),
-          levelRewards: formatWei(formattedSummary.levelRewards, 2),
-          totalUSDT: formatWei(formattedSummary.totalUSDT.toString(), 2)
-        });
-        
-        setChainRewardSummary(formattedSummary);
-      } catch (callError) {
-        console.error('调用getAllRewardsSummary方法失败:', callError);
-        
-        // 尝试使用单个方法获取奖励数据
-        console.log('尝试使用单个方法获取奖励数据...');
-        
-        try {
-          const [stakeRewards, directRewards, levelRewards] = await Promise.all([
-            publicClient.readContract({
-              address: CONTRACTS.REWARD_TRACKER,
-              abi: RewardTrackerABI,
-              functionName: 'getTotalStakeRewards',
-              args: [address]
-            }),
-            publicClient.readContract({
-              address: CONTRACTS.REWARD_TRACKER,
-              abi: RewardTrackerABI,
-              functionName: 'getTotalDirectRewards',
-              args: [address]
-            }),
-            publicClient.readContract({
-              address: CONTRACTS.REWARD_TRACKER,
-              abi: RewardTrackerABI,
-              functionName: 'getTotalLevelRewards',
-              args: [address]
-            })
-          ]);
-          
-          console.log('单个方法获取奖励数据成功:');
-          console.log('质押奖励:', stakeRewards.toString());
-          console.log('直推奖励:', directRewards.toString());
-          console.log('团队奖励:', levelRewards.toString());
-          
-          const formattedSummary = {
-            stakeRewards: stakeRewards.toString(),
-            directRewards: directRewards.toString(),
-            levelRewards: levelRewards.toString(),
-            totalUSDT: stakeRewards + directRewards + levelRewards
-          };
-          
-          
-          setChainRewardSummary(formattedSummary);
-        } catch (singleCallError) {
-          console.error('使用单个方法获取奖励数据失败:', singleCallError);
-          throw new Error('无法从链上获取收益数据，请检查合约地址和网络连接');
-        }
+      // 获取合约地址
+      const contractAddress = signRes.contract || CONTRACTS.COMMUNITY_REWARD
+      if (!contractAddress) {
+        throw new Error('Missing community reward contract address')
       }
+      
+      // 调用合约的claimWithSignature函数领取奖励
+      console.log('Claiming community reward with signature...')
+      const tx = await walletClient.writeContract({
+        address: contractAddress,
+        abi: CommunityRewardABI,
+        functionName: 'claimWithSignature',
+        args: [
+          signRes.level, // 团队等级
+          signRes.amount, // 奖励金额
+          signRes.nonce, // 随机数
+          signRes.deadline, // 签名截止时间
+          signRes.signature // 签名
+        ]
+      })
+      console.log('Transaction sent:', tx)
+      
+      // 等待交易确认
+      const receipt = await publicClient.waitForTransactionReceipt({ hash: tx })
+      console.log('Transaction confirmed:', receipt)
+      
+      // 重新加载奖励数据
+      const res = await fetchCommunityReward(address)
+      if (res && res.success) {
+        setCommunityReward(res)
+      }
+      
+      // 显示成功通知
+      addNotification('success', 'Community reward claimed successfully!')
     } catch (error) {
-      console.error('从链上获取收益汇总失败:', error);
+      // 捕获错误并显示错误通知
+      console.error('Failed to claim community reward:', error)
+      addNotification('error', 'Failed to claim community reward: ' + error.message)
     } finally {
-      setChainSummaryLoading(false);
+      // 无论成功失败都重置领取中状态
+      setCommunityRewardClaiming(false)
     }
   }
-
-  // Load chain reward summary when connected
-  useEffect(() => {
-    if (isConnected && address) {
-      fetchChainRewardSummary()
+  
+  // Claim S6 reward
+  const claimS6Reward = async () => {
+    if (!isVerified || !isConnected || !address || !s6Reward?.is_eligible || !walletClient || s6RewardClaiming) return
+    
+    try {
+      setS6RewardClaiming(true)
+      if (CONTRACTS.S6_REWARD_DISTRIBUTOR) {
+        console.log('Claiming S6 reward...')
+        const tx = await walletClient.writeContract({
+          address: CONTRACTS.S6_REWARD_DISTRIBUTOR,
+          abi: S6RewardDistributorABI,
+          functionName: 'claim',
+          args: []
+        })
+        console.log('Transaction sent:', tx)
+        
+        // Wait for transaction to complete
+        const receipt = await publicClient.waitForTransactionReceipt({ hash: tx })
+        console.log('Transaction confirmed:', receipt)
+        
+        // 重新加载奖励数据
+        if (publicClient) {
+          try {
+            const s6Reward = await publicClient.readContract({
+              address: CONTRACTS.S6_REWARD_DISTRIBUTOR,
+              abi: S6RewardDistributorABI,
+              functionName: 'pendingReward',
+              args: [address]
+            })
+            console.log('获取s6Reward',s6Reward);
+            setS6Reward({
+              success: true,
+              pending_reward: s6Reward.toString(),
+              is_eligible: true
+            })
+          } catch (error) {
+            console.warn('获取S6奖励失败:', error)
+            setS6Reward(null)
+          }
+        }
+        addNotification('success', 'S6 reward claimed successfully!')
+      }
+    } catch (error) {
+      console.error('Failed to claim S6 reward:', error)
+      addNotification('error', 'Failed to claim S6 reward: ' + error.message)
+    } finally {
+      setS6RewardClaiming(false)
     }
-  }, [isConnected, address])
+  }
+  
+  // Claim node reward
+  const claimNodeReward = async () => {
+    if (!isVerified || !isConnected || !address || !nodeReward?.is_eligible || !walletClient || nodeRewardClaiming) return
+    
+    try {
+      setNodeRewardClaiming(true)
+      if (CONTRACTS.NODE_REWARD_DISTRIBUTOR) {
+        console.log('Claiming node reward...')
+        const tx = await walletClient.writeContract({
+          address: CONTRACTS.NODE_REWARD_DISTRIBUTOR,
+          abi: NodeRewardDistributorABI,
+          functionName: 'claim',
+          args: []
+        })
+        console.log('Transaction sent:', tx)
+        
+        // Wait for transaction to complete
+        const receipt = await publicClient.waitForTransactionReceipt({ hash: tx })
+        console.log('Transaction confirmed:', receipt)
+        
+        // 重新加载奖励数据
+        if (publicClient) {
+          try {
+            const nodeReward = await publicClient.readContract({
+              address: CONTRACTS.NODE_REWARD_DISTRIBUTOR,
+              abi: NodeRewardDistributorABI,
+              functionName: 'pendingReward',
+              args: [address]
+            })
+            setNodeReward({
+              success: true,
+              pending_reward: nodeReward.toString(),
+              is_eligible: true
+            })
+          } catch (error) {
+            console.warn('获取节点奖励失败:', error)
+            setNodeReward(null)
+          }
+        }
+        addNotification('success', 'Node reward claimed successfully!')
+      }
+    } catch (error) {
+      console.error('Failed to claim node reward:', error)
+      addNotification('error', 'Failed to claim node reward: ' + error.message)
+    } finally {
+      setNodeRewardClaiming(false)
+    }
+  }
 
   // Calculate total staked from records
   const totalStaked = stakeRecords.reduce((sum, stake) => {
@@ -319,34 +489,34 @@ function MineView() {
     return sum
   }, BigInt(0))
   
+  const getRewardAmountByTypes = (types) => {
+    if (!rewardSummary || !Array.isArray(rewardSummary.data)) return '0'
+    const reward = rewardSummary.data.find(item => types.includes(item.reward_type))
+    return reward?.total_amount || '0'
+  }
+
   // Get direct referral reward from summary
   const getDirectReferralReward = () => {
-    // 优先使用链上数据
-    if (chainRewardSummary?.directRewards) {
-      return chainRewardSummary.directRewards
-    }
-    //  fallback到API数据
-    if (!rewardSummary || !Array.isArray(rewardSummary.data)) {
-      return '0'
-    }
-    const directReward = rewardSummary.data.find(reward => reward.reward_type === 'direct_referral')
-    return directReward?.total_amount || '0'
+    return getRewardAmountByTypes(['direct_referral', 'direct', 'invite'])
   }
 
   // Get stake reward from summary
   const getStakeReward = () => {
-    return chainRewardSummary?.stakeRewards || '0'
+    return getRewardAmountByTypes(['stake', 'staking', 'stake_profit'])
   }
 
   // Get team reward from summary
   const getTeamReward = () => {
-    return chainRewardSummary?.levelRewards || '0'
+    return getRewardAmountByTypes(['level', 'team', 'team_level_reward'])
   }
 
   // Get all reward from summary
   const getAllReward = () => {
     const stakeReward = getStakeReward()
     const teamReward = getTeamReward()
+    console.log('质押收益',stakeReward);
+    console.log('团队收益',teamReward);
+    
     const directReward = getDirectReferralReward()
     const total = BigInt(stakeReward) + BigInt(teamReward) + BigInt(directReward)
     return total.toString()
@@ -408,7 +578,7 @@ function MineView() {
                     {t('common.stakeReward')}
                   </p>
                   <div className="flex items-baseline justify-between">
-                    <p className="text-3xl font-bold leading-tight text-accent-blue">
+                    <p className="text-2xl font-bold leading-tight text-accent-blue">
                       {summaryLoading ? '...' : '$'+formatWei(getStakeReward(), 2)}
                     </p>
                     <p className="text-[#0bda6f] text-sm font-medium flex items-center">
@@ -423,7 +593,7 @@ function MineView() {
                     {t('common.teamReward')}
                   </p>
                   <div className="flex items-baseline justify-between">
-                    <p className="text-3xl font-bold leading-tight truncate">
+                    <p className="text-2xl font-bold leading-tight truncate">
                       {summaryLoading ? '...' : '$'+formatWei(getTeamReward(), 2)}
                     </p>
                     <p className="text-[#0bda6f] text-sm font-medium flex items-center">
@@ -437,7 +607,7 @@ function MineView() {
                     {t('common.inviteReward')}
                   </p>
                   <div className="flex items-baseline justify-between">
-                    <p className="text-3xl font-bold leading-tight text-blue-400">
+                    <p className="text-2xl font-bold leading-tight text-blue-400">
                       {summaryLoading ? '...' : '$'+formatWei(getDirectReferralReward(), 2)}
                     </p>
                     <p className="text-blue-400 text-sm font-medium flex items-center">
@@ -451,7 +621,7 @@ function MineView() {
                     {t('common.allReward')}
                   </p>
                   <div className="flex items-baseline justify-between">
-                    <p className="text-3xl font-bold leading-tight text-purple-400">
+                    <p className="text-2xl font-bold leading-tight text-purple-400">
                       {summaryLoading ? '...' : '$'+formatWei(getAllReward(), 2)}
                     </p>
                     <p className="text-purple-400 text-sm font-medium flex items-center">
@@ -472,67 +642,166 @@ function MineView() {
                     </h2>
                     <button className="text-xs text-primary font-bold hover:underline">{t('mine.manageAll')}</button>
                   </div>
-                  {/* Community Reward */}
-                  <div className="glass-panel p-6 rounded-xl">
-                    <div className="flex justify-between items-center mb-4">
-                      <h3 className="font-bold flex items-center gap-2">
-                        <Icon icon="mdi:community" className="text-primary" />
-                        {t('mine.levelReward')}
-                      </h3>
-                    </div>
-                    {rewardLoading ? (
-                      <div className="text-center text-white/40 py-8">{t('mine.loading')}</div>
-                    ) : communityReward ? (
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between p-4 bg-white/5 rounded-lg">
-                          <div>
-                            <p className="text-white/60 text-sm"></p>
-                            <p className="text-lg font-bold mt-1">
-                              {communityReward.is_eligible && (
-                                <span className="text-green-400">{t('mine.eligible')}</span>
-                              )}
-                            </p>
+                  {/* Reward Modules */}
+                  {(userInfo?.team_level >= 3 || isNode) ? (
+                    <div className="space-y-4">
+                      {/* Community Reward (S3-S5) */}
+                      {userInfo?.team_level >= 3 && (
+                        <div className="glass-panel p-6 rounded-xl">
+                          <div className="flex justify-between items-center mb-4">
+                            <h3 className="font-bold flex items-center gap-2">
+                              <Icon icon="mdi:community" className="text-primary" />
+                              {t('mine.levelReward')} (S3-S6)
+                            </h3>
                           </div>
-                          <div className="text-right">
-                            <p className="text-white/60 text-sm">{t('mine.pendingReward')}</p>
-                            <p className="text-3xl font-bold mt-1">${formatWei(communityReward.pending_reward, 2)} MGN</p>
+                          {rewardLoading ? (
+                            <div className="text-center text-white/40 py-8">{t('mine.loading')}</div>
+                          ) : communityReward ? (
+                            <div className="space-y-4">
+                              <div className="flex items-center justify-between p-4 bg-white/5 rounded-lg">
+                                <div>
+                                  <p className="text-white/60 text-sm"></p>
+                                  <p className="text-lg font-bold mt-1">
+                                    {communityReward.is_eligible && (
+                                      <span className="text-green-400">{t('mine.eligible')}</span>
+                                    )}
+                                  </p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-white/60 text-sm">{t('mine.pendingReward')}</p>
+                                  <p className="text-3xl font-bold mt-1">{formatWei(communityReward.pending_reward, 2)} MGN</p>
+                                </div>
+                              </div>
+                              <button 
+                                className={`w-full py-2 border border-primary/50 bg-border-dark/50 rounded-lg font-bold transition-all flex items-center justify-center gap-2 ${
+                                  communityReward.is_eligible && !communityRewardClaiming
+                                    ? 'bg-primary hover:bg-primary/80 text-white'
+                                    : 'bg-border-dark/50 cursor-not-allowed text-white/30'
+                                }`}
+                                onClick={claimCommunityReward}
+                                disabled={!communityReward.is_eligible || communityRewardClaiming}
+                              >
+                                {communityRewardClaiming ? (
+                                  <>
+                                    <Icon icon="mdi:loading" className="animate-spin" />
+                                    loading...
+                                  </>
+                                ) : (
+                                  <>
+                                    {t('mine.claimReward')}
+                                    <Icon icon={communityReward.is_eligible ? 'mdi:arrow-right' : 'mdi:lock'} />
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="text-center text-white/40 py-8">{t('mine.noCommunityRewardData')}</div>
+                          )}
+                        </div>
+                      )}
+                      
+                      {/* S6 Reward */}
+                      {userInfo?.team_level >= 6 && (
+                        <div className="glass-panel p-6 rounded-xl">
+                          <div className="flex justify-between items-center mb-4">
+                            <h3 className="font-bold flex items-center gap-2">
+                              <Icon icon="mdi:star" className="text-yellow-400" />
+                              S6 Reward
+                            </h3>
                           </div>
+                          {s6RewardLoading ? (
+                            <div className="text-center text-white/40 py-8">{t('mine.loading')}</div>
+                          ) : s6Reward ? (
+                            <div className="space-y-4">
+                              <div className="flex items-center justify-between p-4 bg-white/5 rounded-lg">
+                                <div>
+                                  <p className="text-white/60 text-sm"></p>
+                                  <p className="text-lg font-bold mt-1">
+                                    {s6Reward.is_eligible && (
+                                      <span className="text-green-400">{t('mine.eligible')}</span>
+                                    )}
+                                  </p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-white/60 text-sm">{t('mine.pendingReward')}</p>
+                                  <p className="text-3xl font-bold mt-1">${formatWei(s6Reward.pending_reward, 2)} USD1</p>
+                                </div>
+                              </div>
+                              <button 
+                                className={`w-full py-2 border border-primary/50 bg-border-dark/50 rounded-lg font-bold transition-all flex items-center justify-center gap-2 ${
+                                  s6Reward.is_eligible && !s6RewardClaiming
+                                    ? 'bg-primary hover:bg-primary/80 text-white'
+                                    : 'bg-border-dark/50 cursor-not-allowed text-white/30'
+                                }`}
+                                onClick={claimS6Reward}
+                                disabled={!s6Reward.is_eligible || s6RewardClaiming}
+                              >
+                                {s6RewardClaiming ? (
+                                  <>
+                                    <Icon icon="mdi:loading" className="animate-spin" />
+                                    loading...
+                                  </>
+                                ) : (
+                                  <>
+                                    {t('mine.claimReward')}
+                                    <Icon icon={s6Reward.is_eligible ? 'mdi:arrow-right' : 'mdi:lock'} />
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="text-center text-white/40 py-8">{t('mine.noCommunityRewardData')}</div>
+                          )}
                         </div>
-                        <button className={`w-full py-2 border border-primary/50 bg-border-dark/50 rounded-lg font-bold transition-all flex items-center justify-center gap-2 ${
-                          communityReward.is_eligible
-                            ? 'bg-primary hover:bg-primary/80 text-white'
-                            : 'bg-border-dark/50 cursor-not-allowed text-white/30'
-                        }`}>
-                          {t('mine.claimReward')}
-                          <Icon icon={communityReward.is_eligible ? 'mdi:arrow-right' : 'mdi:lock'} />
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="text-center text-white/40 py-8">{t('mine.noCommunityRewardData')}</div>
-                    )}
-                  </div>
-                  
-                  {/* M-NODE Card */}
-                  {/* <div className="glass-panel p-6 rounded-xl space-y-4 group hover:border-primary/50 transition-all">
-                    <div className="flex justify-between items-start">
-                      <div className="flex items-center gap-3">
-                        <div className="size-10 rounded-lg bg-blue-500/20 flex items-center justify-center text-blue-400">
-                          <Icon icon="mdi:hub" />
+                      )}
+                      
+                      {/* Node Reward */}
+                      {isNode && (
+                        <div className="glass-panel p-6 rounded-xl space-y-4 group hover:border-primary/50 transition-all">
+                          <div className="flex justify-between items-start">
+                            <div className="flex items-center gap-3">
+                              <div className="size-10 rounded-lg bg-blue-500/20 flex items-center justify-center text-blue-400">
+                                <Icon icon="mdi:hub" />
+                              </div>
+                              <div>
+                                <p className="font-bold">{t('mine.nodeReward')}</p>
+                                <p className="text-xs text-white/40">{t('mine.nodeParticipation')}</p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-bold text-lg">{nodeRewardLoading ? t('mine.loading') : `${formatWei(nodeReward?.pending_reward || '0', 2)}`}</p>
+                              <p className="text-[10px] text-white/40">MGN</p>
+                            </div>
+                          </div>
+                          <button 
+                            className={`w-full py-2 border border-primary/50 bg-border-dark/50 rounded-lg font-bold transition-all flex items-center justify-center gap-2 ${
+                              nodeReward?.is_eligible && !nodeRewardClaiming
+                                ? 'bg-primary hover:bg-primary/80 text-white'
+                                : 'bg-border-dark/50 cursor-not-allowed text-white/30'
+                            }`}
+                            onClick={claimNodeReward}
+                            disabled={!nodeReward?.is_eligible || nodeRewardClaiming}
+                          >
+                            {nodeRewardClaiming ? (
+                              <>
+                                <Icon icon="mdi:loading" className="animate-spin" />
+                                loading...
+                              </>
+                            ) : (
+                              <>
+                                {t('mine.claimReward')}
+                                <Icon icon={nodeReward?.is_eligible ? 'mdi:arrow-right' : 'mdi:lock'} className="text-sm" />
+                              </>
+                            )}
+                          </button>
                         </div>
-                        <div>
-                          <p className="font-bold">{t('mine.nodeReward')}</p>
-                          <p className="text-xs text-white/40">{t('mine.nodeParticipation')}</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-bold text-lg">0.00</p>
-                        <p className="text-[10px] text-white/40">{t('stake.locked')}</p>
-                      </div>
+                      )}
                     </div>
-                    <button className="w-full border border-primary/50 bg-border-dark/50 cursor-not-allowed py-2 rounded-lg text-sm font-bold text-white/30 flex items-center justify-center gap-2">
-                      {t('mine.unstakeRequired')} <Icon icon="mdi:lock" className="text-sm" />
-                    </button>
-                  </div> */}
+                  ) : (
+                    <div className="glass-panel p-6 rounded-xl">
+                      <div className="text-center text-white/40 py-8">{t('mine.noPendingReward')}</div>
+                    </div>
+                  )}
                 </div>
                 {/* Center Column: Personal Staking Stats */}
                 <div className="lg:col-span-6 space-y-6">

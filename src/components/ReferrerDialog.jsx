@@ -3,17 +3,20 @@ import { Icon } from "@iconify/react";
 import { ethers } from 'ethers'
 import TEAMLEVEL_ABI from '../abis/TeamLevel.json'
 import { useTranslation } from "react-i18next";
+import { useNotification } from '../App.jsx';
 
 // Global Referrer Dialog
 // Checks if the current address has a referrer bound; if not, allows user to bind one.
 // This component does not assume a specific UI framework beyond simple modal structure.
 
-function ReferrerDialog({ visible, onClose }) {
+function ReferrerDialog({ visible, onClose, autoCloseIfBound = true }) {
   
   const { t } = useTranslation();
+  const { addNotification } = useNotification();
   const [address, setAddress] = useState('')
   const [binding, setBinding] = useState({ status: '', tx: '' })
   const [checking, setChecking] = useState(false)
+  const [isBound, setIsBound] = useState(false)
   const TEAMLEVEL_ADDRESS = import.meta.env.VITE_TEAM_LEVEL_ADDRESS || '0x1' // fallback
   
   // 只在弹窗首次打开时检查一次绑定状态，不依赖 onClose 避免重复检查
@@ -23,6 +26,7 @@ function ReferrerDialog({ visible, onClose }) {
     async function check() {
       try {
         setChecking(true)
+        if (mounted) setIsBound(false)
         if (typeof window === 'undefined' || !window.ethereum) {
           setChecking(false)
           return
@@ -34,7 +38,8 @@ function ReferrerDialog({ visible, onClose }) {
         const res = await contract.isBindReferral(me)
         // If bound, close dialog automatically
         if (mounted && res) {
-          onClose()
+          setIsBound(true)
+          if (autoCloseIfBound) onClose()
         }
       } catch (e) {
         // ignore
@@ -47,14 +52,29 @@ function ReferrerDialog({ visible, onClose }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible])
 
+  // 从URL中获取邀请码并设置到输入框
+  useEffect(() => {
+    if (!visible) return
+    try {
+      if (typeof window === 'undefined' || !window.location) return
+      const urlParams = new URLSearchParams(window.location.search)
+      const code = urlParams.get('code')
+      if (code) {
+        setAddress(code)
+      }
+    } catch (error) {
+      console.error('Error getting referral code from URL:', error)
+    }
+  }, [visible])
+
   async function bind() {
     try {
       if (!address || !/^0x[0-9a-fA-F]{40}$/.test(address)) {
-        alert('请提供有效的邀请人地址')
+        addNotification('error', '请提供有效的邀请人地址')
         return
       }
       if (typeof window === 'undefined' || !window.ethereum) {
-        alert('未检测到以太坊钱包')
+        addNotification('error', '未检测到以太坊钱包')
         return
       }
       setBinding({ status: 'loading', tx: '' })
@@ -65,14 +85,14 @@ function ReferrerDialog({ visible, onClose }) {
       
       // 检查邀请人地址不能是自己
       if (address.toLowerCase() === userAddress.toLowerCase()) {
-        alert('邀请人地址不能是自己')
+        addNotification('error', '邀请人地址不能是自己')
         setBinding({ status: '', tx: '' })
         return
       }
       
       // 检查邀请人地址不能是零地址
       if (address === '0x0000000000000000000000000000000000000000') {
-        alert('邀请人地址不能是零地址')
+        addNotification('error', '邀请人地址不能是零地址')
         setBinding({ status: '', tx: '' })
         return
       }
@@ -85,8 +105,9 @@ function ReferrerDialog({ visible, onClose }) {
       await tx.wait()
       
       setBinding({ status: 'success', tx: tx.hash })
+      addNotification('success', t('common.referrerBindSuccess'))
       // Close on success after a short delay
-      // setTimeout(() => onClose(), 1500)
+      setTimeout(() => onClose(), 1500)
     } catch (err) {
       console.error('绑定邀请人失败:', err)
       setBinding({ status: 'error', tx: '' })
@@ -99,7 +120,7 @@ function ReferrerDialog({ visible, onClose }) {
       } else if (err?.message) {
         errorMsg = `绑定失败: ${err.message}`
       }
-      alert(errorMsg)
+      addNotification('error', errorMsg)
     }
   }
 
@@ -121,10 +142,16 @@ function ReferrerDialog({ visible, onClose }) {
             <p className="text-[#a692c9] text-lg mb-2">
               {t('referrer.subtitle')}
             </p>
+            {isBound && (
+              <div className="mb-3 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/80">
+                {t('referrer.alreadyBound')}
+              </div>
+            )}
             <input
               placeholder="0xAbC123..."
               value={address}
               onChange={(e) => setAddress(e.target.value)}
+              disabled={isBound}
               className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white font-mono"
             />
           </div>
@@ -167,13 +194,18 @@ function ReferrerDialog({ visible, onClose }) {
           <div className="pt-4">
             <button 
               onClick={bind} 
-              disabled={binding.status === 'loading'}
-              className={`w-full px-4 py-3 rounded-lg text-white font-bold transition-colors flex items-center justify-center gap-2 ${binding.status === 'loading' ? 'bg-primary/70 cursor-not-allowed' : 'bg-primary hover:bg-primary/90'}`}
+                disabled={binding.status === 'loading' || isBound}
+              className={`w-full px-4 py-3 rounded-lg text-white font-bold transition-colors flex items-center justify-center gap-2 ${binding.status === 'loading' || isBound ? 'bg-primary/70 cursor-not-allowed' : 'bg-primary hover:bg-primary/90'}`}
             >
               {binding.status === 'loading' ? (
                 <>
                   <Icon icon="mdi:loading" className="animate-spin" />
                   {t('stake.processing')}
+                </>
+              ) : isBound ? (
+                <>
+                  <Icon icon="mdi:check-circle" />
+                  {t('referrer.alreadyBound')}
                 </>
               ) : (
                 <>

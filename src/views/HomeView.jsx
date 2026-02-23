@@ -5,6 +5,7 @@ import { useAccount } from 'wagmi'
 import WalletConnect from '../components/WalletConnect.jsx';
 import { useTranslation } from 'react-i18next';
 import i18n from '../i18n/index.js';
+import { useWalletVerification } from '../App.jsx';
 import { 
   fetchGlobalStakeStats, 
   fetchDateStakeStats,
@@ -15,6 +16,7 @@ import {
 function HomeView() {
   const { address, isConnected } = useAccount()
   const { t } = useTranslation()
+  const { isVerified } = useWalletVerification()
   
   // Global staking stats
   const [globalStats, setGlobalStats] = useState({
@@ -74,7 +76,7 @@ function HomeView() {
   
   // Load date stake stats
   const loadDateStakeStats = async (date) => {
-    if (!date) return
+    if (!date || !isVerified) return
     try {
       setDateStats(prev => ({ ...prev, loading: true }))
       const res = await fetchDateStakeStats(date)
@@ -111,15 +113,36 @@ function HomeView() {
 
   // Load date stake stats when date changes
   useEffect(() => {
-    if (selectedDate) {
+    if (selectedDate && isVerified) {
       loadDateStakeStats(selectedDate)
+    } else if (!isVerified) {
+      setDateStats({
+        total_stake: '0',
+        stake_1d: '0',
+        stake_30d: '0',
+        total_unstake: '0',
+        unstake_1d: '0',
+        unstake_30d: '0',
+        loading: false
+      })
     }
-  }, [selectedDate])
+  }, [selectedDate, isVerified])
 
   // Fetch global stats
   useEffect(() => {
     let mounted = true
     async function loadGlobalStats() {
+      if (!isVerified) {
+        if (mounted) {
+          setGlobalStats({
+            currentStake: '0',
+            stake30d: '0',
+            stake1d: '0',
+            loading: false
+          })
+        }
+        return
+      }
       try {
         const res = await fetchGlobalStakeStats()
         if (mounted && res && res.success) {
@@ -138,13 +161,13 @@ function HomeView() {
     }
     loadGlobalStats()
     return () => { mounted = false }
-  }, [])
+  }, [isVerified])
 
   // Fetch user info when wallet connected
   useEffect(() => {
     let mounted = true
     async function loadUserInfo() {
-      if (!isConnected || !address) {
+      if (!isConnected || !address || !isVerified) {
         setUserInfo(null)
         return
       }
@@ -162,7 +185,7 @@ function HomeView() {
     }
     loadUserInfo()
     return () => { mounted = false }
-  }, [address, isConnected])
+  }, [address, isConnected, isVerified])
   
 
   return (
@@ -283,7 +306,7 @@ function HomeView() {
                   <div className="absolute inset-16 rounded-full border-[3px] border-dashed border-primary/10 animate-rotate-slow" style={{ animationDuration: '20s' }}></div>
                   <div className="absolute inset-20 rounded-full bg-gradient-to-br from-primary to-accent-blue opacity-30 blur-3xl animate-breathing"></div>
                   <div className="relative z-10 flex items-center justify-center w-24 h-24 rounded-full bg-slate-900/80 border border-white/10 shadow-2xl">
-                    <img src="/img/coin.png" alt="" />
+                    <img src="/img/coin_1.png" alt="" />
                   </div>
                   <div className="absolute top-0 left-1/2 size-2 bg-primary rounded-full blur-[1px] animate-pulse"></div>
                   <div className="absolute bottom-10 right-10 size-3 bg-accent-blue rounded-full blur-[2px] animate-pulse" style={{ animationDelay: '1s' }}></div>
@@ -381,7 +404,7 @@ function HomeView() {
           <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
             <div className="max-w-xl">
               <h2 className="text-3xl font-bold mb-4">{t('common.institutionalGradeAssets')}</h2>
-              <p className="text-slate-400 leading-relaxed">Stake our native ecosystem tokens to earn rewards, participate in governance, and secure the future of the Morgan Protocol.</p>
+              <p className="text-slate-400 leading-relaxed">{t('common.stakeNativeTokens')}</p>
             </div>
             <Link className="group flex items-center gap-2 text-primary font-bold transition-all hover:pr-2" to="/stake">
               {t('common.viewAllPools')}
@@ -400,7 +423,7 @@ function HomeView() {
                   <span className="px-2 py-0.5 rounded bg-green-500/10 text-green-500 text-[20px] font-bold uppercase">30Day</span>
                   <h3 className="text-xl font-bold">{t('common.usd1Stablecoin')}</h3>
               </div>
-              <p className="text-slate-400 text-sm mb-4 leading-snug">The primary yield-bearing stable asset of the Morgan ecosystem.</p>
+              <p className="text-slate-400 text-sm mb-4 leading-snug">{t('common.day30Tips')}</p>
               <div className="flex items-center gap-6">
                 <div>
                   <p className="text-[10px] text-slate-500 uppercase font-bold">{t('common.reward30')}</p>
@@ -424,7 +447,7 @@ function HomeView() {
                   <span className="px-2 py-0.5 rounded bg-primary/10 text-primary text-[20px] font-bold uppercase">1Day</span>
                   <h3 className="text-xl font-bold">{t('common.usd1Stablecoin')}</h3>
               </div>
-              <p className="text-slate-400 text-sm mb-4 leading-snug">Empowering holders to vote on protocol updates and earn fees.</p>
+              <p className="text-slate-400 text-sm mb-4 leading-snug">{t('common.empoweringHolders')}</p>
               <div className="flex items-center gap-6">
                 <div>
                   <p className="text-[10px] text-slate-500 uppercase font-bold">{t('common.rewardDay')}</p>
@@ -443,7 +466,7 @@ function HomeView() {
         {/* CTA Section */}
         <section className="py-20 px-6">
           <div className="max-w-7xl mx-auto rounded-3xl bg-gradient-to-br from-primary to-accent-blue p-1px">
-            <div className="bg-background-dark/90 rounded-[calc(1.5rem-1px)] p-12 md:p-20 text-center relative overflow-hidden">
+            <div className="bg-background-dark/90 rounded-[calc(1.5rem-1px)] p-12 md:p-20 text-center relative ">
               <div className="absolute inset-0 bg-primary/5 pointer-events-none"></div>
               <div className="absolute -top-24 -right-24 w-64 h-64 bg-primary/20 blur-[100px] rounded-full animate-drift"></div>
               <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-accent-blue/20 blur-[100px] rounded-full animate-drift" style={{ animationDelay: '-3s' }}></div>

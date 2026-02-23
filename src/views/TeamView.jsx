@@ -4,6 +4,7 @@ import { useAccount } from "wagmi";
 import { useTranslation } from "react-i18next";
 import Notification from "../components/Notification.jsx";
 import ReferrerDialog from "../components/ReferrerDialog.jsx";
+import { useWalletVerification } from '../App.jsx';
 import {
   fetchUserInfo,
   fetchTeamInfo,
@@ -17,6 +18,7 @@ import {
 function TeamView() {
   const { address, isConnected } = useAccount();
   const { t } = useTranslation();
+  const { isVerified } = useWalletVerification();
   // const {  isConnected } = useAccount();
   // const address = '0xc4bbfad25740517144361a4215054ecd8b70c148'
   // User info
@@ -59,7 +61,7 @@ function TeamView() {
   useEffect(() => {
     let mounted = true;
     async function loadUserInfo() {
-      if (!isConnected || !address) {
+      if (!isConnected || !address || !isVerified) {
         setUserInfo(null);
         return;
       }
@@ -79,13 +81,13 @@ function TeamView() {
     return () => {
       mounted = false;
     };
-  }, [address, isConnected]);
+  }, [address, isConnected, isVerified]);
 
   // Fetch team info
   useEffect(() => {
     let mounted = true;
     async function loadTeamInfo() {
-      if (!isConnected || !address) {
+      if (!isConnected || !address || !isVerified) {
         setTeamInfo(null);
         return;
       }
@@ -106,13 +108,13 @@ function TeamView() {
     return () => {
       mounted = false;
     };
-  }, [address, isConnected]);
+  }, [address, isConnected, isVerified]);
 
   // Fetch 获取直接推荐
   useEffect(() => {
     let mounted = true;
     async function loadHierarchy() {
-      if (!isConnected || !address) {
+      if (!isConnected || !address || !isVerified) {
         setDirectUsers([]);
         return;
       }
@@ -132,13 +134,13 @@ function TeamView() {
     return () => {
       mounted = false;
     };
-  }, [address, isConnected]);
+  }, [address, isConnected, isVerified]);
 
   // Fetch 获取今日质押数据
   useEffect(() => {
     let mounted = true;
     async function loadTodayStake() {
-      if (!isConnected || !address) {
+      if (!isConnected || !address || !isVerified) {
         setTodayStake(null);
         return;
       }
@@ -158,13 +160,13 @@ function TeamView() {
     return () => {
       mounted = false;
     };
-  }, [address, isConnected]);
+  }, [address, isConnected, isVerified]);
 
   // Fetch 获取奖励数据
   useEffect(() => {
     let mounted = true;
     async function loadPerformance() {
-      if (!isConnected || !address) {
+      if (!isConnected || !address || !isVerified) {
         setPerformance(null);
         return;
       }
@@ -186,7 +188,7 @@ function TeamView() {
     return () => {
       mounted = false;
     };
-  }, [address, isConnected]);
+  }, [address, isConnected, isVerified]);
 
   // Get level icon based on team level
   const getLevelIcon = (level) => {
@@ -206,11 +208,11 @@ function TeamView() {
 
     try {
       // 方法1：尝试使用 navigator.clipboard.writeText
-      if (navigator.clipboard && window.isSecureContext) {
-        await navigator.clipboard.writeText(inviteLink);
-        showNotification(t('team.linkCopied'), 'success');
-        return;
-      }
+      // if (navigator.clipboard && window.isSecureContext) {
+      //   await navigator.clipboard.writeText(inviteLink);
+      //   showNotification(t('team.linkCopied'), 'success');
+      //   return;
+      // }
       
       // 方法2：使用 document.execCommand('copy') with textarea
       const textArea = document.createElement('textarea');
@@ -374,19 +376,6 @@ function TeamView() {
                   </div>
                 </div>
 
-                <div className="glass-panel rounded-xl py-2 px-6 lg:p-6  flex flex-col gap-1 lg:gap-2 neon-border-purple border-l-4 border-l-blue-500">
-                  <p className="text-[#a692c9] text-xs font-semibold uppercase tracking-wider">
-                    {t('common.bigAreaPerformance')}
-                  </p>
-                  <div className="flex items-baseline justify-between">
-                    <p className="text-3xl font-bold leading-tight text-blue-400">
-                      {performanceLoading ? "..." : performance?.big_area_performance ? `$${formatWei(performance.big_area_performance, 0)}` : "0"}
-                    </p>
-                    <p className="text-blue-400 text-lg font-medium flex items-center">
-                      USD1
-                    </p>
-                  </div>
-                </div>
 
                 <div className="glass-panel rounded-xl py-2 px-6 lg:p-6  flex flex-col gap-1 lg:gap-2 neon-border-purple border-l-4 border-l-purple-500">
                   <p className="text-[#a692c9] text-xs font-semibold uppercase tracking-wider">
@@ -401,6 +390,21 @@ function TeamView() {
                     </p>
                   </div>
                 </div>
+
+                <div className="glass-panel rounded-xl py-2 px-6 lg:p-6  flex flex-col gap-1 lg:gap-2 neon-border-purple border-l-4 border-l-blue-500">
+                  <p className="text-[#a692c9] text-xs font-semibold uppercase tracking-wider">
+                    {t('common.allPerformance')}
+                  </p>
+                  <div className="flex items-baseline justify-between">
+                    <p className="text-3xl font-bold leading-tight text-blue-400">
+                      {performanceLoading ? "..." : performance?.team_performance ? `$${formatWei(performance.team_performance, 0)}` : "0"}
+                    </p>
+                    <p className="text-blue-400 text-lg font-medium flex items-center">
+                      USD1
+                    </p>
+                  </div>
+                </div>
+
               </div>
 
               <div className="glass-panel p-6 rounded-xl border border-white/10 mb-10">
@@ -424,7 +428,7 @@ function TeamView() {
                         {userInfo?.referrer && userInfo.referrer !== "0x0000000000000000000000000000000000000000" ? (
                           <div className="glass-panel p-4 rounded-lg border border-white/10 mb-4 flex items-center ">
                             <span className="text-sm text-white font-mono break-all">
-                              {userInfo.referrer}
+                              {formatAddress(userInfo.referrer)}
                             </span>
                           </div>
                         ) : (
@@ -677,7 +681,7 @@ function TeamView() {
       <div className="fixed inset-0 z-0 bg-[radial-gradient(circle_at_50%_50%,rgba(124,59,237,0.1)_0%,transparent_50%)] pointer-events-none"></div>
       
       {/* Referrer Dialog */}
-      <ReferrerDialog visible={showReferrerDialog} onClose={() => setShowReferrerDialog(false)} />
+      <ReferrerDialog visible={showReferrerDialog} onClose={() => setShowReferrerDialog(false)} autoCloseIfBound={false} />
     </div>
   );
 }

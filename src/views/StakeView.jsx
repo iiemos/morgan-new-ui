@@ -3,22 +3,23 @@ import { Icon } from '@iconify/react';
 import useStakeStore from '../stores/stakeStore';
 import { useWalletIntegration } from '../hooks/useWalletIntegration';
 import { useTranslation } from 'react-i18next';
-import { fetchGlobalStakeStats, formatWei } from '../api/index.js';
+import { fetchGlobalStakeStats, fetchUserInfo, formatWei } from '../api/index.js';
 import ReferrerDialog from '../components/ReferrerDialog.jsx';
 import { createPublicClient, http } from 'viem';
 import TEAMLEVEL_ABI from '../abis/TeamLevel.json';
 import { useAccount } from 'wagmi';
-import { useNotification } from '../App.jsx';
+import { useNotification, useWalletVerification } from '../App.jsx';
 
 function StakeView() {
   // Initialize wallet integration
   useWalletIntegration();
   
   const { t } = useTranslation();
-  // const { address, isConnected } = useAccount();
+  const { address, isConnected } = useAccount();
+  const { isVerified } = useWalletVerification();
   
-    const {  isConnected } = useAccount();
-  const address = '0x62da8a37619ef2b2aa42fb14b343bab6a759d9b1'
+    // const {  isConnected } = useAccount();
+  // const address = '0x62da8a37619ef2b2aa42fb14b343bab6a759d9b1'
   const [showReferrerDialog, setShowReferrerDialog] = useState(false);
   const [checkingReferral, setCheckingReferral] = useState(false);
   const { addNotification } = useNotification();
@@ -74,6 +75,15 @@ function StakeView() {
     async function loadGlobalStats() {
       try {
         setGlobalStats(prev => ({ ...prev, loading: true }));
+        if (!isVerified) {
+          if (mounted) {
+            setGlobalStats({
+              currentStake: '0',
+              loading: false
+            });
+          }
+          return;
+        }
         const res = await fetchGlobalStakeStats();
         if (mounted && res && res.success) {
           setGlobalStats({
@@ -89,11 +99,11 @@ function StakeView() {
     }
     loadGlobalStats();
     return () => { mounted = false; };
-  }, []);
+  }, [isVerified]);
 
   // Initialize timers and data
   useEffect(() => {
-    if (isConnected) {
+    if (isConnected && isVerified) {
       useStakeStore.getState().loadStakeData();
     }
     
@@ -117,21 +127,26 @@ function StakeView() {
       clearInterval(rewardUpdateInterval);
       useStakeStore.getState().cleanup();
     };
-  }, [isConnected]);
+  }, [isConnected, isVerified]);
 
   const handleStake = async () => {
     try {
+      if (!isVerified) {
+        addNotification('error', t('error.connectWallet'));
+        return;
+      }
       if (validateStakeAmount()) {
         // 检查用户是否绑定了邀请人
         if (isConnected && address) {
           console.log('Checking referral binding status before staking...');
           const isBound = await checkReferralBinding(address);
+          console.log('isBound',isBound);
           
           if (!isBound) {
-            console.log('User has not bound a referrer, showing referrer dialog');
-            setShowReferrerDialog(true);
-            return;
-          }
+          console.log('User has not bound a referrer, showing referrer dialog');
+          setShowReferrerDialog(true);
+          return;
+        }
           console.log('User has bound a referrer, proceeding with staking');
         }
         
@@ -144,7 +159,7 @@ function StakeView() {
       if (err.message && (err.message.includes('newUserReferral') || err.message.includes('invitation'))) {
         setShowReferrerDialog(true);
       } else {
-        addNotification('error', err.message || 'Staking failed');
+        addNotification('error', t('common.highTrafficPleaseWait') || 'Staking failed');
       }
     }
   };
@@ -163,56 +178,28 @@ function StakeView() {
     try {
       setCheckingReferral(true);
       
-      // Create public client
-      const publicClient = createPublicClient({
-        transport: http(RPC_URL)
-      });
+      console.log('Checking referral binding for address:', address);
       
-      // Test RPC connection
-      try {
-        const blockNumber = await publicClient.getBlockNumber();
-        console.log('RPC connection successful, current block height:', blockNumber);
-      } catch (rpcError) {
-        console.error('RPC connection failed:', rpcError);
+      // 使用 fetchUserInfo 接口获取用户信息
+      const userInfo = await fetchUserInfo(address);
+      
+      // 检查接口返回值
+      if (!userInfo) {
+        console.error('Failed to get user info');
         return false;
       }
       
-      // Check if contract address is valid
-      if (TEAM_LEVEL_ADDRESS === '0x1') {
-        console.warn('Using fallback team level address, contract calls will fail');
+      // 根据接口返回值判断是否需要显示邀请弹窗
+      if (userInfo.success === false && userInfo.error === '用户不存在') {
+        console.log('User does not exist, showing referrer dialog');
         return false;
-      }
-      
-      // Check if contract exists
-      try {
-        const code = await publicClient.getCode({ address: TEAM_LEVEL_ADDRESS });
-        if (code === '0x') {
-          console.error('Contract not deployed at address:', TEAM_LEVEL_ADDRESS);
-          return false;
-        }
-        console.log('Contract exists at address:', TEAM_LEVEL_ADDRESS);
-      } catch (codeError) {
-        console.error('Error checking contract code:', codeError);
-        return false;
-      }
-      
-      // Call isBindReferral method
-      try {
-        const bound = await publicClient.readContract({
-          address: TEAM_LEVEL_ADDRESS,
-          abi: TEAMLEVEL_ABI,
-          functionName: 'isBindReferral',
-          args: [address]
-        });
-        
-        console.log('Referral binding status:', bound);
-        return bound;
-      } catch (callError) {
-        console.error('Error calling isBindReferral method:', callError);
-        return false;
+      } else {
+        console.log('User exists, not showing referrer dialog');
+        return true;
       }
     } catch (error) {
       console.error('Error checking referral binding:', error);
+      // If there's an error, assume user is not bound
       return false;
     } finally {
       setCheckingReferral(false);
@@ -590,7 +577,7 @@ function StakeView() {
       <div className="fixed inset-0 z-0 bg-[radial-gradient(circle_at_50%_50%,rgba(124,59,237,0.1)_0%,transparent_50%)] pointer-events-none"></div>
       
       {/* Referrer Dialog */}
-      <ReferrerDialog visible={showReferrerDialog} onClose={() => setShowReferrerDialog(false)} />
+      <ReferrerDialog visible={showReferrerDialog} onClose={() => setShowReferrerDialog(false)} autoCloseIfBound={false} />
     </div>
   );
 }

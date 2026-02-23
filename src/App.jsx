@@ -14,22 +14,30 @@ import TeamView from './views/TeamView.jsx'
 import MineView from './views/MineView.jsx'
 import './i18n/index.js'
 import { useEffect, useState } from 'react'
-import { createPublicClient, getContract } from 'viem'
 import ReferrerDialog from './components/ReferrerDialog.jsx'
-import TEAMLEVEL_ABI from './abis/TeamLevel.json'
 import Notification from './components/Notification.jsx'
+import { fetchUserInfo } from './api/index.js'
 
 // Create React Query client
 const queryClient = new QueryClient()
 
 // Create Notification Context
 export const NotificationContext = createContext()
+export const WalletVerificationContext = createContext()
 
 // Custom hook for using notification context
 export const useNotification = () => {
   const context = useContext(NotificationContext)
   if (!context) {
     throw new Error('useNotification must be used within NotificationProvider')
+  }
+  return context
+}
+
+export const useWalletVerification = () => {
+  const context = useContext(WalletVerificationContext)
+  if (!context) {
+    throw new Error('useWalletVerification must be used within WalletVerificationProvider')
   }
   return context
 }
@@ -67,75 +75,37 @@ const config = createConfig({
 // Referral binding checker component
 function ReferralBindingChecker({ onBindingStatus }) {
   const { address, isConnected } = useAccount()
-  const teamLevelAddress = import.meta.env.VITE_TEAM_LEVEL_ADDRESS || '0x1a5a3A1F23f6314Ffac0705fC19B9c6c9319Ae82'
-  const RPC_URL = import.meta.env.VITE_RPC_URL || 'https://rpc.movachain.com/'
+  const { isVerified } = useWalletVerification()
   
   useEffect(() => {
     let mounted = true
     
     async function checkBindingStatus() {
-      if (!isConnected || !address) {
+      if (!isConnected || !address || !isVerified) {
         if (mounted) onBindingStatus(null)
         return
       }
       
       try {
         console.log('Checking referral binding for address:', address)
-        console.log('Team Level Address:', teamLevelAddress)
-        console.log('RPC URL:', RPC_URL)
         
-        // Create public client
-        const publicClient = createPublicClient({
-          transport: http(RPC_URL)
-        })
+        // 使用 fetchUserInfo 接口获取用户信息
+        const userInfo = await fetchUserInfo(address)
         
-        // Test RPC connection
-        try {
-          const blockNumber = await publicClient.getBlockNumber()
-          console.log('RPC connection successful, current block height:', blockNumber)
-        } catch (rpcError) {
-          console.error('RPC connection failed:', rpcError)
+        // 检查接口返回值
+        if (!userInfo) {
+          console.error('Failed to get user info')
           if (mounted) onBindingStatus(false)
           return
         }
         
-        // Check if contract address is valid
-        if (teamLevelAddress === '0x1') {
-          console.warn('Using fallback team level address, contract calls will fail')
+        // 根据接口返回值判断是否需要显示邀请弹窗
+        if (userInfo.success === false && userInfo.error === '用户不存在') {
+          console.log('User does not exist, showing referrer dialog')
           if (mounted) onBindingStatus(false)
-          return
-        }
-        
-        // Check if contract exists
-        try {
-          const code = await publicClient.getCode({ address: teamLevelAddress })
-          if (code === '0x') {
-            console.error('Contract not deployed at address:', teamLevelAddress)
-            if (mounted) onBindingStatus(false)
-            return
-          }
-          console.log('Contract exists at address:', teamLevelAddress)
-        } catch (codeError) {
-          console.error('Error checking contract code:', codeError)
-          if (mounted) onBindingStatus(false)
-          return
-        }
-        
-        // Call isBindReferral method
-        try {
-          const bound = await publicClient.readContract({
-            address: teamLevelAddress,
-            abi: TEAMLEVEL_ABI,
-            functionName: 'isBindReferral',
-            args: [address]
-          })
-          
-          console.log('Referral binding status:', bound)
-          if (mounted) onBindingStatus(bound)
-        } catch (callError) {
-          console.error('Error calling isBindReferral method:', callError)
-          // If there's an error, assume user is not bound
-          if (mounted) onBindingStatus(false)
+        } else {
+          console.log('User exists, not showing referrer dialog')
+          if (mounted) onBindingStatus(true)
         }
       } catch (error) {
         console.error('Error checking referral binding:', error)
@@ -147,7 +117,7 @@ function ReferralBindingChecker({ onBindingStatus }) {
     // Only check if user is connected and has an address
     checkBindingStatus()
     return () => { mounted = false }
-  }, [address, isConnected, teamLevelAddress, RPC_URL, onBindingStatus])
+  }, [address, isConnected, isVerified, onBindingStatus])
   
   return null
 }
@@ -156,10 +126,26 @@ function AppContent() {
   const location = useLocation()
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(false)
   const { address, isConnected } = useAccount()
+  const [isVerified, setIsVerified] = useState(false)
   const [globalReferrerVisible, setGlobalReferrerVisible] = useState(false)
   const [hasClosedReferrerDialog, setHasClosedReferrerDialog] = useState(false)
   const [notifications, setNotifications] = useState([])
   const [notificationId, setNotificationId] = useState(1)
+
+  useEffect(() => {
+    if (isConnected && address) {
+      const verified = localStorage.getItem(`signature_verified_${address}`) === 'true'
+      setIsVerified(verified)
+    } else {
+      setIsVerified(false)
+    }
+  }, [address, isConnected])
+
+  useEffect(() => {
+    if (!isVerified) {
+      setGlobalReferrerVisible(false)
+    }
+  }, [isVerified])
   
   const toggleMenu = () => {
     setIsSidebarOpen(!isSidebarOpen)
@@ -168,7 +154,7 @@ function AppContent() {
   // Handle referral binding status
   const handleBindingStatus = (bound) => {
     console.log('Handling binding status:', bound)
-    if (bound === false) {
+    if (bound === false && !hasClosedReferrerDialog) {
       console.log('User not bound, showing referrer dialog')
       setGlobalReferrerVisible(true)
     } else if (bound === true) {
@@ -197,38 +183,40 @@ function AppContent() {
   }
 
   return (
-    <NotificationContext.Provider value={{ addNotification }}>
-      <div className="bg-background-light dark:bg-background-dark text-white min-h-screen">
-        {/* 在除了首页之外的页面显示 Header */}
-        {location.pathname !== '/' && <Header toggleMenu={toggleMenu} />}
-        
-        {/* Referral Binding Checker */}
-        <ReferralBindingChecker onBindingStatus={handleBindingStatus} />
-        
-        <div className="flex flex-col lg:flex-row h-screen overflow-hidden">
-          {/* Sidebar Navigation */}
-          <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+    <WalletVerificationContext.Provider value={{ isVerified, setIsVerified }}>
+      <NotificationContext.Provider value={{ addNotification }}>
+        <div className="bg-background-light dark:bg-background-dark text-white min-h-screen">
+          {/* 在除了首页之外的页面显示 Header */}
+          {location.pathname !== '/' && <Header toggleMenu={toggleMenu} />}
           
-          {/* Main Content Area */}
-          <main className={`flex-1 flex flex-col overflow-y-auto ${location.pathname !== '/' ? 'pt-20 h-[calc(100vh-5rem)]' : ''}`}>
-            <Routes>
-              <Route path="/" element={<HomeView />} />
-              <Route path="/stake" element={<StakeView />} />
-              <Route path="/swap" element={<SwapView />} />
-              <Route path="/team" element={<TeamView />} />
-              <Route path="/mine" element={<MineView />} />
-            </Routes>
-          </main>
-          {globalReferrerVisible && <ReferrerDialog visible={true} onClose={handleReferrerDialogClose} />}
+          {/* Referral Binding Checker */}
+          <ReferralBindingChecker onBindingStatus={handleBindingStatus} />
+          
+          <div className="flex flex-col lg:flex-row h-screen overflow-hidden">
+            {/* Sidebar Navigation */}
+            <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+            
+            {/* Main Content Area */}
+            <main className={`flex-1 flex flex-col overflow-y-auto ${location.pathname !== '/' ? 'pt-20 h-[calc(100vh-5rem)]' : ''}`}>
+              <Routes>
+                <Route path="/" element={<HomeView />} />
+                <Route path="/stake" element={<StakeView />} />
+                <Route path="/swap" element={<SwapView />} />
+                <Route path="/team" element={<TeamView />} />
+                <Route path="/mine" element={<MineView />} />
+              </Routes>
+            </main>
+            {globalReferrerVisible && <ReferrerDialog visible={true} onClose={handleReferrerDialogClose} />}
+          </div>
+          
+          {/* Global Cookie Consent Banner */}
+          <CookieConsent />
+          
+          {/* Global Notification Component */}
+          <Notification notifications={notifications} onClose={removeNotification} />
         </div>
-        
-        {/* Global Cookie Consent Banner */}
-        <CookieConsent />
-        
-        {/* Global Notification Component */}
-        <Notification notifications={notifications} onClose={removeNotification} />
-      </div>
-    </NotificationContext.Provider>
+      </NotificationContext.Provider>
+    </WalletVerificationContext.Provider>
   )
 }
 

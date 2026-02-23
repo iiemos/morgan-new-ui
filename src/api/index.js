@@ -25,6 +25,22 @@ async function get(path) {
   }
 }
 
+async function post(path, body) {
+  const url = `${API_BASE}${path}`
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'omit',
+      body: JSON.stringify(body ?? {})
+    })
+    if (!res.ok) return null
+    return await safeJson(res)
+  } catch {
+    return null
+  }
+}
+
 // ==================== Utility Functions ====================
 
 // Wei -> Ether conversion (string to number)
@@ -33,9 +49,9 @@ export function formatWei(weiString, decimals = 4) {
   try {
     const wei = BigInt(weiString)
     const ether = Number(wei) / 1e18
-    return ether.toLocaleString('en-US', { 
+    return ether.toLocaleString('en-US', {
       minimumFractionDigits: 0,
-      maximumFractionDigits: decimals 
+      maximumFractionDigits: decimals
     })
   } catch {
     return '0'
@@ -133,7 +149,20 @@ export async function fetchPerformance(address) {
 // 查询用户社区奖励信息
 export async function fetchCommunityReward(address) {
   if (!address) return null
-  return await get(`/api/reward/community/${address}`)
+  return await get(`/api/reward/community/${address}/snapshot`)
+}
+
+// 请求社区奖励签名
+export async function requestCommunityRewardSignature({ user, amount, user_signature, message, contract } = {}) {
+  if (!user || !user_signature || !message) return null
+  const payload = {
+    user,
+    amount: amount ?? null,
+    user_signature,
+    message
+  }
+  if (contract) payload.contract = contract
+  return await post('/api/reward/community/sign', payload)
 }
 
 // 获取用户奖励汇总
@@ -185,6 +214,7 @@ export default {
   fetchTodayStake,
   fetchPerformance,
   fetchCommunityReward,
+  requestCommunityRewardSignature,
   fetchRewardSummary,
   // Legacy APIs
   fetchApiRates,
